@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=League+Spartan:wght@100..900&display=swap');
+@import "tailwindcss";
+
+
+/* Custom Styling */
+html, body {
+  overflow-x: hidden;
+  max-width: 100%;
+  margin: 0 !important;
+}
+
+body {
+   font-family: "League Spartan", sans-serif;
+   font-optical-sizing: auto;
+}
+
+/* Hero Section Styling */
+.hero-title {
+  line-height: 1.1;
+}
+
+/* Button Styling */
+button {
+  transition: all 0.3s ease;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+button{
+  cursor: pointer;
+}
+Link{
+  cursor: pointer;
+}
