@@ -15,7 +15,6 @@ import { getAttorneyPublicSlug } from "../../lib/attorney";
 import {
   US_STATE_OPTIONS,
   getCitiesForState,
-  getZipCodesForCity,
   normalizeUsState,
 } from "../../lib/usLocationData";
 
@@ -65,7 +64,6 @@ function buildParams(filters, page = 1) {
   const params = new URLSearchParams({ page: String(page), limit: "12" });
   if (filters.state)        params.set("state",         filters.state);
   if (filters.city)         params.set("city",          filters.city);
-  if (filters.zip)          params.set("zip",           filters.zip);
   if (filters.keyword)      params.set("keyword",       filters.keyword);
   return params.toString();
 }
@@ -119,7 +117,6 @@ const AttorneyDirectory = () => {
   const [filters, setFilters] = useState({
     state:        normalizeUsState(searchParams.get("state")),
     city:         "",
-    zip:          "",
     practiceArea: "",
     keyword:      "",
   });
@@ -136,10 +133,6 @@ const AttorneyDirectory = () => {
   const cityOptions = useMemo(
     () => getCitiesForState(filters.state),
     [filters.state],
-  );
-  const zipOptions = useMemo(
-    () => getZipCodesForCity(filters.state, filters.city),
-    [filters.state, filters.city],
   );
   const savedAttorneyKeys = useMemo(
     () => new Set(savedAttorneys.map(getAttorneySaveKey)),
@@ -177,11 +170,10 @@ const AttorneyDirectory = () => {
     () => ({
       state: filters.state,
       city: filters.city,
-      zip: filters.zip,
       practiceArea: filters.practiceArea,
       keyword: debouncedKeyword,
     }),
-    [filters.state, filters.city, filters.zip, filters.practiceArea, debouncedKeyword],
+    [filters.state, filters.city, filters.practiceArea, debouncedKeyword],
   );
 
   /* ── fetch with retry (handles Render.com cold starts) ── */
@@ -254,8 +246,7 @@ const AttorneyDirectory = () => {
     setFilters((f) => ({
       ...f,
       [field]: value,
-      ...(field === "state" ? { city: "", zip: "" } : {}),
-      ...(field === "city" ? { zip: "" } : {}),
+      ...(field === "state" ? { city: "" } : {}),
     }));
   }, [handleKeyword]);
 
@@ -311,7 +302,7 @@ const AttorneyDirectory = () => {
         </div>
 
         {/* ── Location and search filter bar ── */}
-        <div className="bg-white rounded-[20px] border border-[#eeeeee] shadow-sm p-7 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-6 mb-10">
+        <div className="bg-white rounded-[20px] border border-[#eeeeee] shadow-sm p-7 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
           {/* Step 1 — State */}
           <FilterStep
             step={1} label="Select State"
@@ -363,44 +354,9 @@ const AttorneyDirectory = () => {
               ))}
             </select>
           </FilterStep>
-
-
-
-          {/* Step 3 - ZIP */}
+          {/* Step 3 - Practice area */}
           <FilterStep
-            step={3} label="ZIP Code"
-            hint={
-              !filters.city
-                ? "Choose a city first"
-                : filters.zip
-                  ? "ZIP selected"
-                  : `${zipOptions.length} ZIP codes available`
-            }
-            success={!!filters.zip}
-            divider
-          >
-            <select
-              value={filters.zip}
-              onChange={(e) => updateFilter("zip", e.target.value)}
-              disabled={!filters.city}
-              className={`w-full p-3 bg-[#f9f9f7] border border-[#dddddd] rounded-lg appearance-none text-[#555555] text-sm focus:outline-none ${
-                !filters.city ? "cursor-not-allowed opacity-60" : ""
-              }`}
-            >
-              <option value="">
-                {filters.city ? "Any ZIP Code" : "Select city first"}
-              </option>
-              {zipOptions.map((zip) => (
-                <option key={zip} value={zip}>
-                  {zip}
-                </option>
-              ))}
-            </select>
-          </FilterStep>
-
-          {/* Step 4 - Practice area */}
-          <FilterStep
-            step={4} label="Type / Practice Area"
+            step={3} label="Type / Practice Area"
             hint={filters.practiceArea ? "Practice area selected" : "Choose a practice area"}
             success={!!filters.practiceArea}
             divider
@@ -415,8 +371,8 @@ const AttorneyDirectory = () => {
             </select>
           </FilterStep>
 
-          {/* Step 5 - Keyword */}
-          <FilterStep step={5} label="Keyword Search" hint="Enter keywords (optional)">
+          {/* Step 4 - Keyword */}
+          <FilterStep step={4} label="Keyword Search" hint="Enter keywords (optional)">
             <div className="relative">
               <input
                 type="text"
@@ -464,10 +420,10 @@ const AttorneyDirectory = () => {
           />
 
           {/* Clear filters */}
-          {(filters.state || filters.city || filters.zip || filters.practiceArea || filters.keyword) && (
+          {(filters.state || filters.city || filters.practiceArea || filters.keyword) && (
             <button
               type="button"
-              onClick={() => { setFilters({ state: "", city: "", zip: "", practiceArea: "", keyword: "" }); setDebouncedKeyword(""); setPage(1); }}
+              onClick={() => { setFilters({ state: "", city: "", practiceArea: "", keyword: "" }); setDebouncedKeyword(""); setPage(1); }}
               className="px-4 py-2 text-[13px] text-[#c8102e] border border-[#c8102e] rounded-full font-semibold hover:bg-red-50 transition"
             >
               Clear filters ✕
@@ -488,7 +444,6 @@ const AttorneyDirectory = () => {
                 <>
                   Showing results for {filters.state || "all states"}
                   {filters.city ? `, ${filters.city}` : ""}
-                  {filters.zip ? `, ${filters.zip}` : ""}
                 </>
               )}
             </p>

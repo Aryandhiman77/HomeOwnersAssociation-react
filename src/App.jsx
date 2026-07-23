@@ -26,6 +26,7 @@ import Cart from "./pages/Cart/Cart";
 import AttorneySubmissionForm from "./pages/FrequentlyAskedQuestions/Attorneysubmissionform";
 import Blog from "./pages/Blog";
 import BlogDetail from "./pages/BlogDetail";
+import NotFound from "./pages/NotFound";
 
 const AdminDashboard = lazy(() => import("./pages/Admin/AdminDashboard"));
 
@@ -142,6 +143,7 @@ const App = () => {
 
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Cart />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
     </BrowserRouter>
