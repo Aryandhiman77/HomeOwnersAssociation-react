@@ -114,14 +114,19 @@ async function requestJson(path, options = {}) {
     const message =
       data.message ||
       data.error ||
-      (Array.isArray(data.errors) ? data.errors[0]?.message : null) ||
+      (Array.isArray(data.errors)
+        ? data.errors[0]?.message || data.errors[0]?.msg
+        : null) ||
       "Something went wrong. Please try again.";
 
     if (handleAdminAuthFailure(path, response.status, message)) {
       throw new Error("Admin session expired. Please log in again.");
     }
 
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    error.data = data;
+    throw error;
   }
 
   return data;
@@ -151,14 +156,19 @@ async function requestFormData(path, formData, options = {}) {
     const message =
       data.message ||
       data.error ||
-      (Array.isArray(data.errors) ? data.errors[0]?.message : null) ||
+      (Array.isArray(data.errors)
+        ? data.errors[0]?.message || data.errors[0]?.msg
+        : null) ||
       "Something went wrong. Please try again.";
 
     if (handleAdminAuthFailure(path, response.status, message)) {
       throw new Error("Admin session expired. Please log in again.");
     }
 
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    error.data = data;
+    throw error;
   }
 
   return data;

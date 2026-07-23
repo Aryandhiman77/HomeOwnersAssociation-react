@@ -20,7 +20,7 @@ const isImageFile = (type = "") => type.startsWith("image/");
 const CustomDropBox = ({
   multiple = false,
   maxFiles = 1,
-  sizePerFile = ["1MB", "2MB", "3MB", "4MB","20MB"][0],
+  sizePerFile = ["1MB", "2MB", "3MB", "4MB", "20MB"][0],
   className,
   previewClasses,
   previewsWrapperClasses,
@@ -139,7 +139,7 @@ const CustomDropBox = ({
             <div className="flex gap-x-2">
               <RiImageAddFill size={50} color="#1655c2" />
               <h1>
-                Upload Images{" "}
+                Upload Media{" "}
                 <span className="opacity-[0.5] text-md">
                   (Optional but Recommended)
                 </span>
@@ -154,8 +154,9 @@ const CustomDropBox = ({
               Choose Files or Drag & Drop
             </div>
             <p className="text-[15px] opacity-[0.5] mt-2">
-              .jpg, .png, .pdf, webp, .docx, .mp4 or .mpeg files upto {sizePerFile} each &middot; You can upload {difference +" "}
-               files.
+              .jpg, .png, .pdf, webp, .docx, .mp4 or .mpeg files upto{" "}
+              {sizePerFile} each &middot; You can upload {difference + " "}
+              files.
             </p>
           </div>
           <input
@@ -200,11 +201,15 @@ const CustomDropBox = ({
                   )}
                 </div>
                 <div className="min-w-0 flex-1 pr-5">
-                  <p className="truncate text-sm font-semibold text-[#1f2933]" title={fileName}>
+                  <p
+                    className="truncate text-sm font-semibold text-[#1f2933]"
+                    title={fileName}
+                  >
                     {fileName}
                   </p>
                   <p className="mt-0.5 text-xs font-medium text-[#6b7280]">
-                    {extension} {preview?.size ? `- ${formatFileSize(preview.size)}` : ""}
+                    {extension}{" "}
+                    {preview?.size ? `- ${formatFileSize(preview.size)}` : ""}
                   </p>
                   {preview?.errorMessage && (
                     <p className="mt-1 text-xs font-semibold text-red-600">

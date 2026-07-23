@@ -51,6 +51,7 @@ const FieldError = ({ id, message, className = "" }) =>
 
 const SubmitYourStory = () => {
   const [uploads, setUploads] = useState([]);
+  const [uploadResetKey, setUploadResetKey] = useState(0);
   const [status, setStatus] = useState({ type: "", message: "" });
   const [agreementErrors, setAgreementErrors] = useState({
     disclaimer: false,
@@ -205,6 +206,7 @@ const SubmitYourStory = () => {
       await postFormData("/submit-story", payload);
       form.reset();
       setUploads([]);
+      setUploadResetKey((current) => current + 1);
       setSelectedPropertyState("");
       setSelectedPropertyCity("");
       setAgreementErrors({ disclaimer: false, consent: false });
@@ -593,6 +595,7 @@ const SubmitYourStory = () => {
               />
             </div>
             <Dropbox
+              key={uploadResetKey}
               disablePreviews={false}
               maxFiles={50}
               getFiles={setUploads}

@@ -15,28 +15,26 @@ const NAV_ITEMS = [
   {
     label: "Submit Your Story",
     href: "/submit-story",
-    dropdown: [
-      { label: "Submit Your Story", href: "/submit-story" },
-    ],
+    dropdown: [{ label: "Submit Your Story", href: "/submit-story" }],
   },
   {
     label: "Non Homeowner Advocate",
     href: "/non-legal-advocate",
     dropdown: [
-      { label: "Overview",           href: "/non-legal-advocate" },
-      { label: "Intake Form",        href: "/non-legal-advocate/intake-form" },
-      { label: "Legal Disclaimer",   href: "/legal-disclaimer" },
-      { label: "How It Works",       href: "/non-legal-advocate/how-it-works" },
-      { label: "Contact",            href: "/contact" },
+      { label: "Overview", href: "/non-legal-advocate" },
+      { label: "Intake Form", href: "/non-legal-advocate/intake-form" },
+      { label: "Legal Disclaimer", href: "/legal-disclaimer" },
+      { label: "How It Works", href: "/non-legal-advocate/how-it-works" },
+      { label: "Contact", href: "/contact" },
     ],
   },
   {
     label: "Homeowner Attorneys",
     href: "/find-attorney",
     dropdown: [
-      { label: "Select Your State",        href: "/find-attorney" },
-      { label: "Florida Attorneys",        href: "/find-attorney?state=FL" },
-      { label: "Other States",             href: "/find-attorney?state=other" },
+      { label: "Select Your State", href: "/find-attorney" },
+      { label: "Florida Attorneys", href: "/find-attorney?state=FL" },
+      { label: "Other States", href: "/find-attorney?state=other" },
       { label: "Attorney Submission Form", href: "/find-attorney/submit" },
     ],
   },
@@ -44,9 +42,9 @@ const NAV_ITEMS = [
     label: "About Us",
     href: "/about-us",
     dropdown: [
-      { label: "Our Story",        href: "/about-us" },
-      { label: "Mission",          href: "/about-us#mission" },
-      { label: "Disclaimer",       href: "/about-us#disclaimer" },
+      { label: "Our Story", href: "/about-us" },
+      { label: "Mission", href: "/about-us#mission" },
+      { label: "Disclaimer", href: "/about-us#disclaimer" },
       { label: "Non-Legal Notice", href: "/about-us#notice" },
     ],
   },
@@ -64,8 +62,8 @@ const NAV_ITEMS = [
     label: "Cart",
     href: "/cart",
     dropdown: [
-      { label: "View Cart",   href: "/cart" },
-      { label: "Checkout",    href: "/checkout" },
+      { label: "View Cart", href: "/cart" },
+      { label: "Checkout", href: "/checkout" },
     ],
   },
 ];
@@ -76,7 +74,7 @@ function getNavHref(item) {
 
 const Header = () => {
   const { pathname } = useLocation();
-  const [mobileOpen, setMobileOpen]       = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [mobileExpanded, setMobileExpanded] = useState(null);
   const headerRef = useRef(null);
@@ -124,12 +122,10 @@ const Header = () => {
       }}
     >
       <div className="mx-auto max-w-[1320px] px-3 sm:px-5">
-
         {/* ── SINGLE ROW: logo-mark | email + wordmark | nav | social ── */}
         <div className="flex min-h-[82px] items-center justify-between gap-3 py-2 lg:min-h-[92px]">
-
           {/* LEFT — logo-1 + (email on top / logo-2 on bottom) */}
-          <div className="flex min-w-0 shrink items-center gap-0">
+          <Link to={"/"} className="flex min-w-0 shrink items-center gap-0">
             {/* logo-1: the HOA circular badge */}
             <img
               src={settings?.logoUrl || logo_1}
@@ -148,7 +144,7 @@ const Header = () => {
                 className="h-[28px] w-auto max-w-[185px] object-contain object-left sm:h-[34px] sm:max-w-none"
               />
             </div>
-          </div>
+          </Link>
 
           <div className="flex shrink-0 flex-col items-end gap-1">
             {/* FAR RIGHT — social icons (desktop) + mobile hamburger */}
@@ -198,7 +194,10 @@ const Header = () => {
               {/* hamburger — mobile only */}
               <button
                 type="button"
-                onClick={() => { setMobileOpen((o) => !o); setMobileExpanded(null); }}
+                onClick={() => {
+                  setMobileOpen((o) => !o);
+                  setMobileExpanded(null);
+                }}
                 className="p-2 text-gray-700 transition-colors hover:text-[#1a5c2a] xl:hidden"
                 aria-label={mobileOpen ? "Close menu" : "Open menu"}
               >
@@ -211,9 +210,9 @@ const Header = () => {
               aria-label="Main navigation"
             >
               {navItems.map((item) => {
-                const active      = isActive(item);
+                const active = isActive(item);
                 const hasDropdown = item.dropdown?.length > 0;
-                const isOpen      = activeDropdown === item.label;
+                const isOpen = activeDropdown === item.label;
 
                 return (
                   <div key={item.label} className="relative">
@@ -253,9 +252,10 @@ const Header = () => {
                         className={`absolute left-0 top-full min-w-[190px] z-50
                           bg-white border border-gray-200 shadow-lg rounded-sm
                           transition-all duration-150 origin-top
-                          ${isOpen
-                            ? "opacity-100 scale-y-100 pointer-events-auto"
-                            : "opacity-0 scale-y-95 pointer-events-none"
+                          ${
+                            isOpen
+                              ? "opacity-100 scale-y-100 pointer-events-auto"
+                              : "opacity-0 scale-y-95 pointer-events-none"
                           }`}
                         style={{ transformOrigin: "top center" }}
                       >
@@ -277,8 +277,6 @@ const Header = () => {
                 );
               })}
             </nav>
-
-            
           </div>
         </div>
       </div>
@@ -291,12 +289,15 @@ const Header = () => {
       >
         <nav className="px-2 py-2" aria-label="Mobile navigation">
           {navItems.map((item) => {
-            const active      = isActive(item);
+            const active = isActive(item);
             const hasDropdown = item.dropdown?.length > 0;
-            const isExpanded  = mobileExpanded === item.label;
+            const isExpanded = mobileExpanded === item.label;
 
             return (
-              <div key={item.label} className="border-b border-gray-100 last:border-0">
+              <div
+                key={item.label}
+                className="border-b border-gray-100 last:border-0"
+              >
                 {hasDropdown ? (
                   <>
                     <button
@@ -308,12 +309,15 @@ const Header = () => {
                         ${active ? "text-[#1a5c2a]" : "text-gray-800"}`}
                     >
                       {item.label}
-                      {isExpanded
-                        ? <MdKeyboardArrowUp size={18} />
-                        : <MdKeyboardArrowDown size={18} />
-                      }
+                      {isExpanded ? (
+                        <MdKeyboardArrowUp size={18} />
+                      ) : (
+                        <MdKeyboardArrowDown size={18} />
+                      )}
                     </button>
-                    <div className={`overflow-hidden transition-all duration-200 ${isExpanded ? "max-h-96" : "max-h-0"}`}>
+                    <div
+                      className={`overflow-hidden transition-all duration-200 ${isExpanded ? "max-h-96" : "max-h-0"}`}
+                    >
                       {item.dropdown.map((d) => (
                         <Link
                           key={getNavHref(d)}
@@ -343,10 +347,20 @@ const Header = () => {
 
           {/* social icons inside mobile menu */}
           <div className="flex items-center gap-4 px-4 py-4 border-t border-gray-100">
-            <a href={getSocialHref("facebook", "https://facebook.com")} target="_blank" rel="noreferrer" aria-label="Facebook">
+            <a
+              href={getSocialHref("facebook", "https://facebook.com")}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Facebook"
+            >
               <ImFacebook2 size={22} color="#1877F2" />
             </a>
-            <a href={getSocialHref("twitter", "https://x.com")} target="_blank" rel="noreferrer" aria-label="X">
+            <a
+              href={getSocialHref("twitter", "https://x.com")}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="X"
+            >
               <FaSquareXTwitter size={22} color="#000" />
             </a>
             <a
@@ -357,7 +371,12 @@ const Header = () => {
             >
               <FaHome size={12} /> Nextdoor
             </a>
-            <a href={getSocialHref("youtube", "https://youtube.com")} target="_blank" rel="noreferrer" aria-label="YouTube">
+            <a
+              href={getSocialHref("youtube", "https://youtube.com")}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="YouTube"
+            >
               <FaYoutube size={24} color="#FF0000" />
             </a>
           </div>

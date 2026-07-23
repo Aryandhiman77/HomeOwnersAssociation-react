@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useCallback, useState } from "react";
 import image from "../assets/images/nonLegalHomeownerAdvocate.png";
 import Separator from "../components/Elements/Separator";
 import Button from "../components/Elements/Button";
+import Dropbox from "../components/Dropbox";
 import { postFormData } from "../lib/api";
 import { addLocalQueueRecord } from "../lib/adminLocalQueues";
 import { normalizeUsPhone } from "../lib/phone";
@@ -20,9 +21,44 @@ const emptyFieldErrors = {
   email: "",
   state: "",
   phone: "",
+  hoaName: "",
+  bestTimeToCall: "",
   summary: "",
   issueTypes: "",
+  keyDates: "",
+  estimatedDamages: "",
+  uploads: "",
   disclaimer: "",
+};
+
+const backendFieldMap = {
+  adv_name: "name",
+  adv_email: "email",
+  adv_state: "state",
+  adv_phone: "phone",
+  adv_hoa_name: "hoaName",
+  adv_best_time_to_call: "bestTimeToCall",
+  adv_issue_summary: "summary",
+  adv_issue_types: "issueTypes",
+  adv_key_dates: "keyDates",
+  adv_estimated_damages: "estimatedDamages",
+  adv_uploads: "uploads",
+  adv_disclaimer: "disclaimer",
+};
+
+const fieldFocusIds = {
+  name: "username",
+  email: "email",
+  state: "state",
+  phone: "phone",
+  hoaName: "communityName",
+  bestTimeToCall: "bestTimeToCall",
+  summary: "message",
+  issueTypes: "issue-type-0",
+  keyDates: "specify",
+  estimatedDamages: "estimatedDamages",
+  uploads: "dropbox",
+  disclaimer: "adv_disclaimer",
 };
 
 const invalidFieldClass =
@@ -36,6 +72,8 @@ const FieldError = ({ id, message }) =>
   ) : null;
 
 const HoaIssue = () => {
+  const [uploads, setUploads] = useState([]);
+  const [uploadResetKey, setUploadResetKey] = useState(0);
   const [status, setStatus] = useState({ type: "", message: "" });
   const [fieldErrors, setFieldErrors] = useState(emptyFieldErrors);
   const [isSubmitting, setSubmitting] = useState(false);
@@ -44,6 +82,57 @@ const HoaIssue = () => {
     setFieldErrors((current) =>
       current[field] ? { ...current, [field]: "" } : current,
     );
+  };
+
+  const handleUploadsChange = useCallback((files) => {
+    setUploads(files);
+    setFieldErrors((current) =>
+      current.uploads ? { ...current, uploads: "" } : current,
+    );
+  }, []);
+
+  const focusFirstInvalidField = (errors) => {
+    const firstInvalidFieldName = Object.keys(fieldFocusIds).find(
+      (field) => errors[field],
+    );
+    const firstInvalidId = fieldFocusIds[firstInvalidFieldName];
+
+    window.requestAnimationFrame(() => {
+      const firstInvalidField = document.getElementById(firstInvalidId);
+      firstInvalidField?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      firstInvalidField?.focus({ preventScroll: true });
+    });
+  };
+
+  const getBackendFieldErrors = (error) => {
+    const responseErrors = error?.data?.errors;
+    const nextErrors = { ...emptyFieldErrors };
+
+    if (Array.isArray(responseErrors)) {
+      responseErrors.forEach((item) => {
+        const backendField = item?.path || item?.field || item?.param;
+        const field = backendFieldMap[backendField];
+        const message = item?.message || item?.msg || item?.error;
+        if (field && message && !nextErrors[field]) {
+          nextErrors[field] = String(message);
+        }
+      });
+    } else if (responseErrors && typeof responseErrors === "object") {
+      Object.entries(responseErrors).forEach(([backendField, value]) => {
+        const field = backendFieldMap[backendField];
+        const message = Array.isArray(value)
+          ? value[0]?.message || value[0]?.msg || value[0]
+          : value?.message || value?.msg || value;
+        if (field && message) {
+          nextErrors[field] = String(message);
+        }
+      });
+    }
+
+    return nextErrors;
   };
 
   const handleSubmit = async (event) => {
@@ -59,9 +148,12 @@ const HoaIssue = () => {
     const advState = String(formData.get("adv_state") || "").trim();
     const advHoaName = String(formData.get("adv_hoa_name") || "").trim();
     const issueSummary = String(formData.get("adv_issue_summary") || "").trim();
-    const estimatedDamages = String(formData.get("adv_estimated_damages") || "").trim();
+    const estimatedDamages = String(
+      formData.get("adv_estimated_damages") || "",
+    ).trim();
     const keyDates = String(formData.get("adv_key_dates") || "").trim();
-    const issueTypes = formData.getAll("issue_types").map(String);
+    const issueTypes = formData.getAll("adv_issue_types").map(String);
+    const bestTimeToCall = String(formData.get("adv_best_time_to_call") || "");
     const acceptedDisclaimer = formData.get("adv_disclaimer") === "on";
     const nextFieldErrors = {
       name: advName.length >= 2 ? "" : "Please enter your name.",
@@ -72,14 +164,21 @@ const HoaIssue = () => {
       phone: phone
         ? ""
         : "Please enter a valid US phone number, for example 1234567890.",
+      hoaName: "",
+      bestTimeToCall: ["morning", "afternoon", "evening", "night"].includes(
+        bestTimeToCall,
+      )
+        ? ""
+        : "Please select the best time to call.",
       summary:
         issueSummary.length >= 20
           ? ""
           : "Please describe your HOA problem in at least 20 characters.",
       issueTypes:
-        issueTypes.length > 0
-          ? ""
-          : "Please select at least one issue type.",
+        issueTypes.length > 0 ? "" : "Please select at least one issue type.",
+      keyDates: "",
+      estimatedDamages: "",
+      uploads: "",
       disclaimer: acceptedDisclaimer
         ? ""
         : "You must accept the disclaimer before requesting a consultation.",
@@ -87,24 +186,7 @@ const HoaIssue = () => {
 
     if (Object.values(nextFieldErrors).some(Boolean)) {
       setFieldErrors(nextFieldErrors);
-      const firstInvalidId = [
-        ["name", "username"],
-        ["email", "email"],
-        ["state", "state"],
-        ["phone", "phone"],
-        ["summary", "message"],
-        ["issueTypes", "issue-type-0"],
-        ["disclaimer", "adv_disclaimer"],
-      ].find(([field]) => nextFieldErrors[field])?.[1];
-
-      window.requestAnimationFrame(() => {
-        const firstInvalidField = document.getElementById(firstInvalidId);
-        firstInvalidField?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-        firstInvalidField?.focus({ preventScroll: true });
-      });
+      focusFirstInvalidField(nextFieldErrors);
       return;
     }
 
@@ -115,17 +197,13 @@ const HoaIssue = () => {
 
     payload.append("adv_state", advState);
     payload.append("adv_hoa_name", advHoaName);
-    payload.append(
-      "adv_issue_summary",
-      issueSummary,
-    );
-    payload.append(
-      "adv_estimated_damages",
-      estimatedDamages,
-    );
+    payload.append("adv_issue_summary", issueSummary);
+    payload.append("adv_estimated_damages", estimatedDamages);
     payload.append("adv_key_dates", keyDates);
     payload.append("adv_issue_types", JSON.stringify(issueTypes));
+    payload.append("adv_best_time_to_call", bestTimeToCall);
     payload.append("adv_disclaimer", acceptedDisclaimer ? "true" : "false");
+    uploads.forEach((file) => payload.append("adv_uploads", file));
 
     setSubmitting(true);
     try {
@@ -140,15 +218,32 @@ const HoaIssue = () => {
         adv_estimated_damages: estimatedDamages,
         adv_key_dates: keyDates,
         adv_issue_types: issueTypes,
-        preferred_contact: String(formData.get("preferred_contact") || "call"),
+        adv_best_time_to_call: bestTimeToCall,
         status: "new",
         created_at: new Date().toISOString(),
       });
       form.reset();
+      setUploads([]);
+      setUploadResetKey((current) => current + 1);
       setFieldErrors(emptyFieldErrors);
-      setStatus({ type: "success", message: "Your request was saved in the Non-Legal Advocate queue." });
+      setStatus({
+        type: "success",
+        message: "Thank you! Your request has been submitted.",
+      });
     } catch (error) {
-      setStatus({ type: "error", message: error.message });
+      const backendErrors = getBackendFieldErrors(error);
+      const hasBackendFieldErrors = Object.values(backendErrors).some(Boolean);
+
+      if (hasBackendFieldErrors) {
+        setFieldErrors(backendErrors);
+        setStatus({
+          type: "error",
+          message: "Please correct the highlighted fields and try again.",
+        });
+        focusFirstInvalidField(backendErrors);
+      } else {
+        setStatus({ type: "error", message: error.message });
+      }
     } finally {
       setSubmitting(false);
     }
@@ -183,7 +278,9 @@ const HoaIssue = () => {
                 name="adv_name"
                 required
                 aria-invalid={Boolean(fieldErrors.name)}
-                aria-describedby={fieldErrors.name ? "adv_name_error" : undefined}
+                aria-describedby={
+                  fieldErrors.name ? "adv_name_error" : undefined
+                }
                 onChange={() => clearFieldError("name")}
                 className={`border border-[#dad9db] w-full p-1 px-2 text-gray-600 bg-[#f6f7f8] rounded-sm ${
                   fieldErrors.name ? invalidFieldClass : ""
@@ -241,7 +338,18 @@ const HoaIssue = () => {
                 type="text"
                 id="communityName"
                 name="adv_hoa_name"
-                className="border border-[#dad9db] w-full p-1 px-2 text-gray-600 bg-[#f6f7f8] rounded-sm"
+                aria-invalid={Boolean(fieldErrors.hoaName)}
+                aria-describedby={
+                  fieldErrors.hoaName ? "adv_hoa_name_error" : undefined
+                }
+                onChange={() => clearFieldError("hoaName")}
+                className={`border border-[#dad9db] w-full p-1 px-2 text-gray-600 bg-[#f6f7f8] rounded-sm ${
+                  fieldErrors.hoaName ? invalidFieldClass : ""
+                }`}
+              />
+              <FieldError
+                id="adv_hoa_name_error"
+                message={fieldErrors.hoaName}
               />
             </div>
             <div className="flex items-center gap-5">
@@ -266,17 +374,35 @@ const HoaIssue = () => {
                 <FieldError id="adv_phone_error" message={fieldErrors.phone} />
               </div>
               <div className="w-1/2">
-                <label htmlFor="BestTimeToCall">Best Time to Call</label>
+                <label htmlFor="bestTimeToCall">Best Time to Call</label>
                 <select
-                  type="text"
-                  id="BestTimeToCall"
-                  className="border border-[#dad9db] w-full p-2 px-2 text-gray-600 bg-[#f6f7f8] rounded-sm"
+                  id="bestTimeToCall"
+                  name="adv_best_time_to_call"
+                  required
+                  defaultValue=""
+                  aria-invalid={Boolean(fieldErrors.bestTimeToCall)}
+                  aria-describedby={
+                    fieldErrors.bestTimeToCall
+                      ? "adv_best_time_to_call_error"
+                      : undefined
+                  }
+                  onChange={() => clearFieldError("bestTimeToCall")}
+                  className={`border border-[#dad9db] w-full p-2 px-2 text-gray-600 bg-[#f6f7f8] rounded-sm ${
+                    fieldErrors.bestTimeToCall ? invalidFieldClass : ""
+                  }`}
                 >
-                  <option value="Morning">Morning</option>
-                  <option value="Afternoon">Afternoon</option>
-                  <option value="Evening">Evening</option>
-                  <option value="Night">Night</option>
+                  <option value="" disabled>
+                    Select a time
+                  </option>
+                  <option value="morning">Morning</option>
+                  <option value="afternoon">Afternoon</option>
+                  <option value="evening">Evening</option>
+                  <option value="night">Night</option>
                 </select>
+                <FieldError
+                  id="adv_best_time_to_call_error"
+                  message={fieldErrors.bestTimeToCall}
+                />
               </div>
             </div>
             <div>
@@ -318,64 +444,97 @@ const HoaIssue = () => {
                     : ""
                 }`}
               >
-              {issueOptions.map((option, index) => (
-                <div key={option} className="space-x-1 space-y-4">
-                  <input
-                    type="checkbox"
-                    id={`issue-type-${index}`}
-                    name="issue_types"
-                    value={option}
-                    onChange={() => clearFieldError("issueTypes")}
-                  />
-                  <label htmlFor={`issue-type-${index}`}>{option}</label>
-                </div>
-              ))}
+                {issueOptions.map((option, index) => (
+                  <div key={option} className="space-x-1 space-y-4">
+                    <input
+                      type="checkbox"
+                      id={`issue-type-${index}`}
+                      name="adv_issue_types"
+                      value={option}
+                      onChange={() => clearFieldError("issueTypes")}
+                    />
+                    <label htmlFor={`issue-type-${index}`}>{option}</label>
+                  </div>
+                ))}
               </div>
               <FieldError
                 id="adv_issue_types_error"
                 message={fieldErrors.issueTypes}
               />
             </div>
-            <input
-              type="text"
-              id="specify"
-              name="adv_key_dates"
-              placeholder="Other details or key dates"
-              className="border border-[#dad9db] w-full p-1 px-2 text-gray-600 bg-[#f6f7f8] rounded-sm"
-            />
-            <input
-              type="text"
-              name="adv_estimated_damages"
-              placeholder="Estimated damages, if any"
-              className="border border-[#dad9db] w-full p-1 px-2 text-gray-600 bg-[#f6f7f8] rounded-sm"
-            />
-            <Separator className={"h-px! bg-[#cac9cd]!"} />
-            <div className="space-y-2 space-x-2">
-              <p className="font-semibold">Phone Consultations Available:</p>
-              <p className="italic">Would you like to discuss by phone?</p>
-              <div className="space-x-2">
-                <input
-                  type="radio"
-                  id="consultation-by-phone"
-                  name="preferred_contact"
-                  value={"call"}
-                  defaultChecked
-                />
-                <label htmlFor="consultation-by-phone" className="italic">
-                  Yes, please call me.
-                </label>
-              </div>
-              <div className="space-x-2">
-                <input
-                  type="radio"
-                  id="consultation-by-email"
-                  name="preferred_contact"
-                  value={"email"}
-                />
-                <label htmlFor="consultation-by-email" className="italic">
-                  No, email is fine.
-                </label>
-              </div>
+            <div>
+              <input
+                type="text"
+                id="specify"
+                name="adv_key_dates"
+                placeholder="Other details or key dates"
+                aria-invalid={Boolean(fieldErrors.keyDates)}
+                aria-describedby={
+                  fieldErrors.keyDates ? "adv_key_dates_error" : undefined
+                }
+                onChange={() => clearFieldError("keyDates")}
+                className={`border border-[#dad9db] w-full p-1 px-2 text-gray-600 bg-[#f6f7f8] rounded-sm ${
+                  fieldErrors.keyDates ? invalidFieldClass : ""
+                }`}
+              />
+              <FieldError
+                id="adv_key_dates_error"
+                message={fieldErrors.keyDates}
+              />
+            </div>
+            <div>
+              <input
+                type="text"
+                id="estimatedDamages"
+                name="adv_estimated_damages"
+                placeholder="Estimated damages, if any"
+                aria-invalid={Boolean(fieldErrors.estimatedDamages)}
+                aria-describedby={
+                  fieldErrors.estimatedDamages
+                    ? "adv_estimated_damages_error"
+                    : undefined
+                }
+                onChange={() => clearFieldError("estimatedDamages")}
+                className={`border border-[#dad9db] w-full p-1 px-2 text-gray-600 bg-[#f6f7f8] rounded-sm ${
+                  fieldErrors.estimatedDamages ? invalidFieldClass : ""
+                }`}
+              />
+              <FieldError
+                id="adv_estimated_damages_error"
+                message={fieldErrors.estimatedDamages}
+              />
+            </div>
+            <div
+              aria-invalid={Boolean(fieldErrors.uploads)}
+              aria-describedby={
+                fieldErrors.uploads ? "adv_uploads_error" : undefined
+              }
+            >
+              <Dropbox
+                key={uploadResetKey}
+                disablePreviews={false}
+                maxFiles={50}
+                getFiles={handleUploadsChange}
+                allowedMimeTypes={[
+                  "image/png",
+                  "image/jpg",
+                  "image/jpeg",
+                  "image/webp",
+                  "application/pdf",
+                  "application/msword",
+                  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                  "video/mp4",
+                  "video/mpeg",
+                  "video/quicktime",
+                  "video/x-msvideo",
+                  "video/webm",
+                ]}
+                sizePerFile="20MB"
+              />
+              <FieldError
+                id="adv_uploads_error"
+                message={fieldErrors.uploads}
+              />
             </div>
             <Separator className={"h-px! bg-[#cac9cd]!"} />
             <label
@@ -404,9 +563,9 @@ const HoaIssue = () => {
                 }`}
               />
               <span>
-                <span className="font-semibold">Disclaimer:</span>{" "}
-                Guidance provided is for informational purposes only and is not
-                legal advice.
+                <span className="font-semibold">Disclaimer:</span> Guidance
+                provided is for informational purposes only and is not legal
+                advice.
               </span>
             </label>
             <FieldError
