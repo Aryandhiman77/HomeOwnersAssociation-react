@@ -100,7 +100,7 @@ const queueEndpoints = {
   attorneys: "/api/admin/attorney/listing?page=1&limit=50",
   faqs: "/api/admin/faqs?page=1&limit=50",
   blogs: "/api/admin/blogs?page=1&limit=50",
-  pages: "/api/admin/pages?page=1&limit=50",
+  pages: "/api/admin/pages",
   resources: "/api/admin/resources?page=1&limit=50",
   privacy: "/api/admin/privacy-policy",
   terms: "/api/admin/terms-of-use",
@@ -112,6 +112,49 @@ const queueEndpoints = {
   genericCms: null,
   notifications: "/api/admin/notifications?page=1&limit=50",
 };
+
+const ADVOCATE_ISSUE_TYPES = [
+  {
+    label: "Dispute Over Fines or Violations",
+    value: "dispute over fines or violations",
+  },
+  {
+    label: "Unfair Fees or Assessments",
+    value: "unfair fees or assessments",
+  },
+  { label: "Harassment by HOA Board", value: "harassment by hoa board" },
+  { label: "Property Damage Issues", value: "property damage issues" },
+  { label: "Rights and Access Denied", value: "rights and access denied" },
+  { label: "Other", value: "other" },
+];
+
+const STORY_ISSUE_TYPES = [
+  { label: "Fines or Violations", value: "fines or violations" },
+  { label: "Board Harassment", value: "board harassment" },
+  {
+    label: "Neglect or Unsafe Conditions",
+    value: "neglect or unsafe conditions",
+  },
+  {
+    label: "Unfair Fees or Assessments",
+    value: "unfair fees or assessments",
+  },
+  { label: "Property Damage", value: "property damage" },
+  { label: "Selective Enforcement", value: "selective enforcement" },
+];
+
+const ATTORNEY_PRACTICE_AREAS = [
+  "HOA & Condo Disputes",
+  "Property Damage / Neglect",
+  "Selective Enforcement",
+  "Mediation & Pre-Suit Help",
+  "Assessment & Fee Disputes",
+  "Board Governance Issues",
+  "Foreclosure Defense",
+  "Fair Housing / Discrimination",
+  "Construction Defects",
+  "General HOA Litigation",
+];
 
 const frontendQueueNotes = {
   contact:
@@ -171,7 +214,7 @@ const queueConfig = {
       "closed",
       "archieved",
     ],
-    title: (record) => record.adv_issue_summary,
+    title: (record) => record.adv_name,
     person: (record) => record.adv_name,
     email: (record) => record.adv_email,
     body: (record) => record.adv_issue_summary,
@@ -241,12 +284,12 @@ const queueConfig = {
     sidebarLabel: "Pages",
     icon: <FiEdit3 />,
     accent: "bg-[#7b6bb8]",
-    statuses: ["draft", "review", "published", "unpublish", "archived"],
+    statuses: ["draft", "published", "review"],
     title: (record) => record.title || record.hero_title,
     person: () => "CMS Page",
     email: (record) => record.slug || "",
     body: (record) => record.hero_body,
-    meta: (record) => record.slug || record.publish_status || "No slug",
+    meta: (record) => record.publish_status || record.status || "Draft",
   },
   settings: {
     label: "Site Settings",
@@ -383,7 +426,7 @@ const queueKeys = Object.keys(queueConfig);
 const cmsSidebarQueues = ["homeCms", "aboutCms", "advocateCms", "contactCms"];
 const sidebarQueuesWithoutBadges = ["settings", "privacy", "terms"];
 const sidebarQueueKeys = ["stories", "contact", "advocate", "attorneys"];
-const sidebarManagementKeys = ["faqs", "blogs"];
+const sidebarManagementKeys = ["faqs", "blogs", "pages"];
 const sidebarSystemKeys = ["notifications", "resources", "settings"];
 const sidebarLegalKeys = ["privacy", "terms"];
 const paginatedQueueKeys = [
@@ -394,9 +437,20 @@ const paginatedQueueKeys = [
   "attorneys",
   "faqs",
   "blogs",
+  "pages",
   "notifications",
 ];
 const pageSizeOptions = [10, 25, 50];
+const queuesWithLastUpdated = new Set([
+  "stories",
+  "contact",
+  "advocate",
+  "attorneys",
+  "faqs",
+  "blogs",
+  "pages",
+  "resources",
+]);
 const directEditQueueKeys = [
   "settings",
   "homeCms",
@@ -408,7 +462,7 @@ const directEditQueueKeys = [
   "terms",
 ];
 const dashboardQueueKeys = ["stories", "contact", "advocate", "attorneys"];
-const dashboardManagerKeys = ["faqs", "blogs"];
+const dashboardManagerKeys = ["faqs", "blogs", "pages"];
 const dashboardActivityKeys = ["notifications", "resources"];
 const dashboardQuickActionKeys = [
   "settings",
@@ -462,10 +516,29 @@ function formatStatus(value) {
     .replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function createSlug(value) {
+  return String(value || "")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim()
+    .replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
 function getResponseRows(response) {
-  if (Array.isArray(response?.data)) return response.data;
-  if (Array.isArray(response?.records)) return response.records;
-  return [];
+  const candidates = [
+    response?.data,
+    response?.records,
+    response?.pages,
+    response?.results,
+    response?.data?.records,
+    response?.data?.pages,
+    response?.data?.results,
+    response?.data?.docs,
+  ];
+  return candidates.find(Array.isArray) || [];
 }
 
 function getNotificationRows(response) {
@@ -494,6 +567,84 @@ async function fetchFirstAvailableEndpoint(endpoints) {
   throw lastError || new Error("No backend endpoint configured.");
 }
 
+function buildPagesListingEndpoint({
+  page = 1,
+  limit = 10,
+  sortOrder = "desc",
+  status = "All",
+  search = "",
+} = {}) {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+    sortOrder,
+  });
+
+  if (status && status !== "All") {
+    params.set("status", status);
+  }
+  if (search.trim()) {
+    params.set("search", search.trim());
+  }
+
+  return `/api/admin/pages?${params.toString()}`;
+}
+
+function getPagesPagination(response, fallback = {}) {
+  const rows = getResponseRows(response);
+  const source =
+    response?.pagination ||
+    response?.data?.pagination ||
+    response?.meta?.pagination ||
+    response?.meta ||
+    response?.data ||
+    response ||
+    {};
+  const page = Number(
+    source.page ??
+      source.currentPage ??
+      response?.page ??
+      response?.currentPage ??
+      fallback.page ??
+      1,
+  );
+  const limit = Number(
+    (source.limit ??
+      source.pageSize ??
+      response?.limit ??
+      response?.pageSize ??
+      fallback.limit ??
+      rows.length) ||
+      10,
+  );
+  const total = Number(
+    source.total ??
+      source.totalItems ??
+      source.totalRecords ??
+      source.totalDocs ??
+      response?.total ??
+      response?.totalItems ??
+      response?.totalRecords ??
+      response?.totalDocs ??
+      rows.length,
+  );
+  const totalPages = Number(
+    source.totalPages ??
+      source.pages ??
+      response?.totalPages ??
+      response?.pages ??
+      Math.max(1, Math.ceil(total / Math.max(1, limit))),
+  );
+
+  return {
+    page: Number.isFinite(page) && page > 0 ? page : 1,
+    limit: Number.isFinite(limit) && limit > 0 ? limit : 10,
+    total: Number.isFinite(total) && total >= 0 ? total : rows.length,
+    totalPages:
+      Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1,
+  };
+}
+
 function normalizeRecord(record) {
   const status = record.status || record.publish_status || "new";
   return {
@@ -516,6 +667,25 @@ function mergeLocalQueueRows(queue, remoteRows) {
 function normalizeSingleRecord(response, fallback) {
   const record = response?.data || response?.record || response || fallback;
   return normalizeRecord(record);
+}
+
+function normalizePageRecord(response, fallback = {}) {
+  const responseRecord =
+    response?.data?.page ||
+    response?.page ||
+    response?.data?.record ||
+    response?.record ||
+    response?.data ||
+    (response?.id || response?._id ? response : {});
+
+  return normalizeRecord({
+    ...fallback,
+    ...(responseRecord &&
+    typeof responseRecord === "object" &&
+    !Array.isArray(responseRecord)
+      ? responseRecord
+      : {}),
+  });
 }
 
 function normalizeLegalRecord(response, queue) {
@@ -566,6 +736,14 @@ async function fetchQueueRows(queue) {
   return normalizeQueueRows(queue, response);
 }
 
+async function fetchPagesPage(options) {
+  const response = await getJson(buildPagesListingEndpoint(options));
+  return {
+    records: normalizeQueueRows("pages", response),
+    pagination: getPagesPagination(response, options),
+  };
+}
+
 function getCountValue(counts, keys) {
   const source = counts?.data || counts || {};
   for (const key of keys) {
@@ -595,13 +773,16 @@ function normalizeDashboardCounts(response) {
 
 function formatDate(value) {
   if (!value) return "N/A";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "N/A";
+
   return new Intl.DateTimeFormat("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",
     hour: "numeric",
     minute: "2-digit",
-  }).format(new Date(value));
+  }).format(date);
 }
 
 function getNotificationTargetQueue(relatedModule) {
@@ -675,16 +856,7 @@ function normalizeBlogStatus(status) {
 }
 
 function getPracticeAreasInput(record) {
-  if (typeof record?.practiceAreasInput === "string") {
-    return record.practiceAreasInput;
-  }
-  if (Array.isArray(record?.attorney_practice_areas)) {
-    return record.attorney_practice_areas.join(", ");
-  }
-  if (typeof record?.attorney_practice_areas === "string") {
-    return record.attorney_practice_areas;
-  }
-  return "";
+  return getAttorneyPracticeAreas(record).join(", ");
 }
 
 function parseCommaList(value) {
@@ -694,18 +866,62 @@ function parseCommaList(value) {
     .filter(Boolean);
 }
 
+function parseIssueTypeValues(value) {
+  if (Array.isArray(value)) return value.map(String);
+  if (typeof value !== "string") return [];
+
+  try {
+    const parsedValue = JSON.parse(value);
+    return Array.isArray(parsedValue)
+      ? parsedValue.map(String)
+      : parseCommaList(value);
+  } catch {
+    return parseCommaList(value);
+  }
+}
+
+function getAttorneyPracticeAreas(record) {
+  const value =
+    record?.practiceAreasInput !== undefined
+      ? record.practiceAreasInput
+      : record?.attorney_practice_areas;
+  const canonicalAreas = new Map(
+    ATTORNEY_PRACTICE_AREAS.map((area) => [area.toLowerCase(), area]),
+  );
+
+  return parseIssueTypeValues(value)
+    .map((area) => canonicalAreas.get(area.trim().toLowerCase()))
+    .filter(Boolean);
+}
+
+function normalizeIssueTypeValues(value, options) {
+  const allowedValues = new Set(options.map((option) => option.value));
+  return parseIssueTypeValues(value)
+    .map((issueType) => issueType.trim().toLowerCase())
+    .filter((issueType) => allowedValues.has(issueType));
+}
+
+function getStoryIssueTypes(record) {
+  const value =
+    record?.storyIssuesInput !== undefined
+      ? record.storyIssuesInput
+      : record?.story_issue_type;
+  return normalizeIssueTypeValues(value, STORY_ISSUE_TYPES);
+}
+
 function getStoryIssuesInput(record) {
-  if (typeof record?.storyIssuesInput === "string")
-    return record.storyIssuesInput;
-  if (Array.isArray(record?.story_issue_type))
-    return record.story_issue_type.join(", ");
-  if (typeof record?.story_issue_type === "string")
-    return record.story_issue_type;
-  return "";
+  return getStoryIssueTypes(record).join(", ");
+}
+
+function getAdvocateIssueTypes(record) {
+  return normalizeIssueTypeValues(
+    record?.adv_issue_types,
+    ADVOCATE_ISSUE_TYPES,
+  );
 }
 
 function buildStoryPayload(record) {
-  const issueTypes = parseCommaList(getStoryIssuesInput(record));
+  const issueTypes = getStoryIssueTypes(record);
   const requiredFields = {
     "Story name": record.story_name,
     State: record.story_state,
@@ -775,8 +991,50 @@ function getStoryUploadLabel(upload) {
     : upload?.fileName || upload?.fileUrl || "Attached file";
 }
 
+function getAdvocateUploads(record) {
+  const uploads = record?.adv_uploads;
+  if (Array.isArray(uploads)) return uploads;
+  if (!uploads) return [];
+
+  if (typeof uploads === "string") {
+    try {
+      const parsedUploads = JSON.parse(uploads);
+      return Array.isArray(parsedUploads) ? parsedUploads : [uploads];
+    } catch {
+      return [uploads];
+    }
+  }
+
+  return [uploads];
+}
+
+function getAdvocateUploadUrl(upload) {
+  return typeof upload === "string"
+    ? upload
+    : upload?.fileUrl ||
+        upload?.url ||
+        upload?.file_url ||
+        upload?.path ||
+        "";
+}
+
+function getAdvocateUploadLabel(upload) {
+  if (typeof upload !== "string") {
+    return (
+      upload?.fileName ||
+      upload?.filename ||
+      upload?.originalname ||
+      getAdvocateUploadUrl(upload) ||
+      "Attached file"
+    );
+  }
+
+  const pathWithoutQuery = upload.split(/[?#]/)[0];
+  return pathWithoutQuery.split("/").filter(Boolean).pop() || upload;
+}
+
 function buildAttorneyPayload(record) {
-  const practiceAreas = parseCommaList(getPracticeAreasInput(record));
+  const practiceAreas = getAttorneyPracticeAreas(record);
   if (practiceAreas.length === 0) {
     throw new Error("At least one practice area is required.");
   }
@@ -822,6 +1080,14 @@ function buildAdvocatePayload(record) {
     adv_state: String(record.adv_state || "").trim(),
     adv_hoa_name: String(record.adv_hoa_name || "").trim(),
     adv_issue_summary: String(record.adv_issue_summary || "").trim(),
+    adv_issue_types: getAdvocateIssueTypes(record),
+    ...(record.adv_best_time_to_call
+      ? {
+          adv_best_time_to_call: String(
+            record.adv_best_time_to_call,
+          ).trim(),
+        }
+      : {}),
     adv_estimated_damages: String(record.adv_estimated_damages || "").trim(),
     adv_key_dates: String(record.adv_key_dates || "").trim(),
     status,
@@ -897,39 +1163,35 @@ function buildBlogFormData(record, requireImage) {
   return formData;
 }
 
-function buildPageFormData(record) {
-  const formData = new FormData();
-
-  appendRequiredFormField(formData, "title", record.title, "title");
-  appendRequiredFormField(
-    formData,
-    "hero_title",
-    record.hero_title,
-    "hero title",
-  );
-  appendRequiredFormField(formData, "hero_body", record.hero_body, "hero body");
-  appendRequiredFormField(formData, "seo_title", record.seo_title, "SEO title");
-  appendRequiredFormField(
-    formData,
-    "meta_description",
-    record.meta_description,
-    "meta description",
-  );
-
-  if (record.id) {
-    appendRequiredFormField(formData, "slug", record.slug, "slug");
+function buildPagePayload(record) {
+  const publishStatus =
+    record.status || record.publish_status || "draft";
+  if (!queueConfig.pages.statuses.includes(publishStatus)) {
+    throw new Error(
+      `Page status must be one of: ${queueConfig.pages.statuses.join(", ")}.`,
+    );
   }
 
-  formData.append(
-    "publish_status",
-    record.status || record.publish_status || "draft",
-  );
-
-  if (record.featuredImageFile) {
-    formData.append("featured_image", record.featuredImageFile);
+  const payload = {
+    title: String(record.title || "").trim(),
+    hero_title: String(record.hero_title || "").trim(),
+    hero_body: String(record.hero_body || "").trim(),
+    seo_title: String(record.seo_title || "").trim(),
+    meta_description: String(record.meta_description || "").trim(),
+    publish_status: publishStatus,
+  };
+  const slug = String(record.slug || "").trim();
+  if (slug) {
+    payload.slug = slug;
   }
 
-  return formData;
+  Object.entries(payload).forEach(([field, value]) => {
+    if (!["publish_status", "slug"].includes(field) && !value) {
+      throw new Error(`${formatStatus(field)} is required.`);
+    }
+  });
+
+  return payload;
 }
 
 function buildResourceFormData(record, requireImage) {
@@ -984,6 +1246,13 @@ const AdminDashboard = () => {
   const [statusFilter, setStatusFilter] = useState("All");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
+  const [pagesSortOrder, setPagesSortOrder] = useState("desc");
+  const [pagesPagination, setPagesPagination] = useState({
+    page: 1,
+    limit: 10,
+    total: 0,
+    totalPages: 1,
+  });
   const [isLoading, setLoading] = useState(true);
   const [isRecordDetailsLoading, setRecordDetailsLoading] = useState(false);
   const [isSaving, setSaving] = useState(false);
@@ -1032,14 +1301,25 @@ const AdminDashboard = () => {
     }
   }, []);
 
-  const loadQueue = useCallback(async (queue, { selectFirst = false } = {}) => {
-    const requestId = ++queueLoadRequestIdRef.current;
-    setLoading(true);
-    setError("");
+  const loadQueue = useCallback(
+    async (queue, { selectFirst = false, ...listingOptions } = {}) => {
+      const requestId = ++queueLoadRequestIdRef.current;
+      setLoading(true);
+      setError("");
 
-    try {
-      const records = await fetchQueueRows(queue);
+      try {
+        const pageResult =
+          queue === "pages"
+            ? await fetchPagesPage(listingOptions)
+            : null;
+        const records = pageResult
+          ? pageResult.records
+          : await fetchQueueRows(queue);
       if (requestId !== queueLoadRequestIdRef.current) return;
+
+      if (pageResult) {
+        setPagesPagination(pageResult.pagination);
+      }
 
       setRecordsByQueue((current) => ({
         ...current,
@@ -1057,26 +1337,28 @@ const AdminDashboard = () => {
             : null,
         );
       }
-    } catch (requestError) {
-      if (requestId !== queueLoadRequestIdRef.current) return;
+      } catch (requestError) {
+        if (requestId !== queueLoadRequestIdRef.current) return;
 
-      if (queue === "notifications") {
-        setRecordsByQueue((current) => ({ ...current, notifications: [] }));
-      } else if (isFrontendManagedQueue(queue)) {
-        const records = getLocalQueueRecords(queue).map(normalizeRecord);
-        setRecordsByQueue((current) => ({ ...current, [queue]: records }));
-        if (selectFirst) {
-          setSelectedRecord(records[0] ? { ...records[0], queue } : null);
+        if (queue === "notifications") {
+          setRecordsByQueue((current) => ({ ...current, notifications: [] }));
+        } else if (isFrontendManagedQueue(queue)) {
+          const records = getLocalQueueRecords(queue).map(normalizeRecord);
+          setRecordsByQueue((current) => ({ ...current, [queue]: records }));
+          if (selectFirst) {
+            setSelectedRecord(records[0] ? { ...records[0], queue } : null);
+          }
+        } else {
+          setError(requestError.message);
         }
-      } else {
-        setError(requestError.message);
+      } finally {
+        if (requestId === queueLoadRequestIdRef.current) {
+          setLoading(false);
+        }
       }
-    } finally {
-      if (requestId === queueLoadRequestIdRef.current) {
-        setLoading(false);
-      }
-    }
-  }, []);
+    },
+    [],
+  );
 
   useEffect(() => {
     const handleAdminAuthExpired = () => {
@@ -1142,14 +1424,18 @@ const AdminDashboard = () => {
         setRecordDetailsLoading(false);
         setDashboardView(false);
         setActiveQueue(routeQueue);
+        setQuery("");
         setStatusFilter("All");
         setCurrentPage(1);
+        setPagesSortOrder("desc");
         setSelectedRecord(null);
         setMessage("");
         setError("");
-        loadQueue(routeQueue, {
-          selectFirst: directEditQueueKeys.includes(routeQueue),
-        });
+        if (routeQueue !== "pages") {
+          loadQueue(routeQueue, {
+            selectFirst: directEditQueueKeys.includes(routeQueue),
+          });
+        }
         return;
       }
 
@@ -1157,6 +1443,7 @@ const AdminDashboard = () => {
       recordDetailsRequestIdRef.current += 1;
       setRecordDetailsLoading(false);
       setDashboardView(true);
+      setQuery("");
       setStatusFilter("All");
       setCurrentPage(1);
       setSelectedRecord(null);
@@ -1167,6 +1454,34 @@ const AdminDashboard = () => {
       isCurrent = false;
     };
   }, [loadDashboardCounts, loadQueue, location.pathname]);
+
+  useEffect(() => {
+    if (isDashboardView || activeQueue !== "pages") return undefined;
+
+    const timeoutId = window.setTimeout(
+      () => {
+        loadQueue("pages", {
+          page: currentPage,
+          limit: pageSize,
+          sortOrder: pagesSortOrder,
+          status: statusFilter,
+          search: query,
+        });
+      },
+      query.trim() ? 300 : 0,
+    );
+
+    return () => window.clearTimeout(timeoutId);
+  }, [
+    activeQueue,
+    currentPage,
+    isDashboardView,
+    loadQueue,
+    pageSize,
+    pagesSortOrder,
+    query,
+    statusFilter,
+  ]);
 
   const handleLogout = async () => {
     setMobileSidebarOpen(false);
@@ -1244,14 +1559,13 @@ const AdminDashboard = () => {
       draftKey: `new-page-${Date.now()}`,
       title: "",
       slug: "",
+      slugAutoGenerated: true,
       hero_title: "",
       hero_body: "",
       publish_status: "draft",
       status: "draft",
       seo_title: "",
       meta_description: "",
-      featured_image: "",
-      featuredImageFile: null,
     });
   };
 
@@ -1305,6 +1619,10 @@ const AdminDashboard = () => {
     [activeQueue, recordsByQueue],
   );
   const filteredRecords = useMemo(() => {
+    if (activeQueue === "pages") {
+      return activeRecords;
+    }
+
     return activeRecords.filter((record) => {
       const matchesStatus =
         statusFilter === "All" || record.status === statusFilter;
@@ -1317,22 +1635,35 @@ const AdminDashboard = () => {
   }, [activeQueue, activeRecords, query, statusFilter]);
 
   const isActiveQueuePaginated = paginatedQueueKeys.includes(activeQueue);
+  const isPagesQueue = activeQueue === "pages";
   const isDirectEditQueue = directEditQueueKeys.includes(activeQueue);
-  const totalPages = isActiveQueuePaginated
-    ? Math.max(1, Math.ceil(filteredRecords.length / pageSize))
-    : 1;
-  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const totalPages = isPagesQueue
+    ? pagesPagination.totalPages
+    : isActiveQueuePaginated
+      ? Math.max(1, Math.ceil(filteredRecords.length / pageSize))
+      : 1;
+  const safeCurrentPage = isPagesQueue
+    ? pagesPagination.page
+    : Math.min(currentPage, totalPages);
   const paginationStart = isActiveQueuePaginated
     ? (safeCurrentPage - 1) * pageSize
     : 0;
-  const visibleRecords = isActiveQueuePaginated
-    ? filteredRecords.slice(paginationStart, paginationStart + pageSize)
-    : filteredRecords;
-  const visibleStart = filteredRecords.length === 0 ? 0 : paginationStart + 1;
-  const visibleEnd = Math.min(
-    paginationStart + visibleRecords.length,
-    filteredRecords.length,
-  );
+  const visibleRecords = isPagesQueue
+    ? filteredRecords
+    : isActiveQueuePaginated
+      ? filteredRecords.slice(paginationStart, paginationStart + pageSize)
+      : filteredRecords;
+  const visibleStart =
+    visibleRecords.length === 0 ? 0 : paginationStart + 1;
+  const visibleEnd = isPagesQueue
+    ? Math.min(
+        paginationStart + visibleRecords.length,
+        pagesPagination.total,
+      )
+    : Math.min(
+        paginationStart + visibleRecords.length,
+        filteredRecords.length,
+      );
 
   const totals = useMemo(() => {
     return queueKeys.reduce((result, queue) => {
@@ -1443,6 +1774,8 @@ const AdminDashboard = () => {
             ? normalizeCmsRecord(response, queue)
             : queue === "privacy" || queue === "terms"
               ? normalizeLegalRecord(response, queue)
+              : queue === "pages"
+                ? normalizePageRecord(response, record)
               : normalizeSingleRecord(response, record);
       const selectedDetails =
         queue === "blogs"
@@ -1777,17 +2110,19 @@ const AdminDashboard = () => {
           tagsInput: getTagsInput(updatedRecord),
         };
       } else if (selectedRecord.queue === "pages") {
-        const formData = buildPageFormData(selectedRecord);
+        const pagePayload = buildPagePayload(selectedRecord);
         const response = selectedRecord.id
-          ? await putFormData(
+          ? await putJson(
               `/api/admin/page/update-details/${selectedRecord.id}`,
-              formData,
+              pagePayload,
             )
-          : await postFormData("/api/admin/page/create", formData);
+          : await postJson("/api/admin/page/create", pagePayload);
 
-        updatedRecord = normalizeSingleRecord(response, selectedRecord);
-        const requestedPageStatus =
-          selectedRecord.status || selectedRecord.publish_status || "draft";
+        updatedRecord = normalizePageRecord(response, {
+          ...selectedRecord,
+          ...pagePayload,
+        });
+        const requestedPageStatus = pagePayload.publish_status;
         if (
           selectedRecord.id &&
           requestedPageStatus !==
@@ -1797,7 +2132,11 @@ const AdminDashboard = () => {
             `/api/admin/page/update-status/${selectedRecord.id}`,
             { publish_status: requestedPageStatus },
           );
-          updatedRecord = normalizeSingleRecord(statusResponse, updatedRecord);
+          updatedRecord = normalizePageRecord(statusResponse, {
+            ...updatedRecord,
+            publish_status: requestedPageStatus,
+            status: requestedPageStatus,
+          });
         }
         updatedRecord = {
           ...updatedRecord,
@@ -1856,6 +2195,19 @@ const AdminDashboard = () => {
             )
           : [updatedRecord, ...(current[selectedRecord.queue] || [])],
       }));
+      if (selectedRecord.queue === "pages") {
+        const nextPage = isCreatingRecord ? 1 : currentPage;
+        if (isCreatingRecord) {
+          setCurrentPage(1);
+        }
+        await loadQueue("pages", {
+          page: nextPage,
+          limit: pageSize,
+          sortOrder: pagesSortOrder,
+          status: statusFilter,
+          search: query,
+        });
+      }
       if (shouldCloseAfterSave) {
         setSelectedRecord(null);
       } else {
@@ -1959,6 +2311,22 @@ const AdminDashboard = () => {
           (record) => getRecordKey(record) !== getRecordKey(selectedRecord),
         ),
       }));
+      if (selectedRecord.queue === "pages") {
+        const remainingTotal = Math.max(0, pagesPagination.total - 1);
+        const remainingTotalPages = Math.max(
+          1,
+          Math.ceil(remainingTotal / pageSize),
+        );
+        const nextPage = Math.min(currentPage, remainingTotalPages);
+        setCurrentPage(nextPage);
+        await loadQueue("pages", {
+          page: nextPage,
+          limit: pageSize,
+          sortOrder: pagesSortOrder,
+          status: statusFilter,
+          search: query,
+        });
+      }
       setSelectedRecord(null);
       setMessage(`${formatStatus(label)} deleted.`);
     } catch (requestError) {
@@ -2643,6 +3011,14 @@ const AdminDashboard = () => {
                 onClick={() => {
                   if (isDashboardView) {
                     loadDashboardCounts();
+                  } else if (activeQueue === "pages") {
+                    loadQueue("pages", {
+                      page: currentPage,
+                      limit: pageSize,
+                      sortOrder: pagesSortOrder,
+                      status: statusFilter,
+                      search: query,
+                    });
                   } else {
                     loadQueue(activeQueue, {
                       selectFirst: directEditQueueKeys.includes(activeQueue),
@@ -2924,6 +3300,8 @@ const AdminDashboard = () => {
                       <p className="text-sm text-[#6a757d]">
                         {isDirectEditQueue
                           ? "Opening the editor directly for this section."
+                          : isPagesQueue
+                            ? `Showing ${visibleStart}-${visibleEnd} of ${pagesPagination.total} pages`
                           : isActiveQueuePaginated
                             ? `Showing ${visibleStart}-${visibleEnd} of ${filteredRecords.length} filtered records (${activeRecords.length} total)`
                             : `${filteredRecords.length} visible of ${activeRecords.length} records`}
@@ -2958,6 +3336,20 @@ const AdminDashboard = () => {
                             </option>
                           ))}
                         </select>
+                        {isPagesQueue && (
+                          <select
+                            value={pagesSortOrder}
+                            onChange={(event) => {
+                              setPagesSortOrder(event.target.value);
+                              setCurrentPage(1);
+                            }}
+                            aria-label="Sort pages"
+                            className="rounded border border-[#cfd3d7] bg-white px-3 py-2 outline-none"
+                          >
+                            <option value="desc">Newest first</option>
+                            <option value="asc">Oldest first</option>
+                          </select>
+                        )}
                       </div>
                     )}
                   </div>
@@ -3291,10 +3683,23 @@ const AdminDashboard = () => {
                             <p className="text-sm font-semibold uppercase tracking-[0.14em] text-[#d3a85f]">
                               {selectedConfig.label}
                             </p>
-                            <h3 className="mt-2 text-2xl font-semibold">
-                              {selectedConfig.title(selectedRecord) ||
-                                "Untitled"}
-                            </h3>
+                            <div className="mt-2 flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                              <h3 className="text-2xl font-semibold">
+                                {selectedConfig.title(selectedRecord) ||
+                                  "Untitled"}
+                              </h3>
+                              {queuesWithLastUpdated.has(
+                                selectedRecord.queue,
+                              ) &&
+                                selectedRecord.updatedAt && (
+                                  <p className="text-xs font-semibold text-[#6a757d]">
+                                    Last updated:{" "}
+                                    <time dateTime={selectedRecord.updatedAt}>
+                                      {formatDate(selectedRecord.updatedAt)}
+                                    </time>
+                                  </p>
+                                )}
+                            </div>
                           </div>
                           {!isSelectedRecordDirectEdit && (
                             <button
@@ -3374,20 +3779,53 @@ const AdminDashboard = () => {
                               </label>
                             </div>
 
-                            <label className="block text-sm font-semibold">
-                              Issue Types
-                              <input
-                                value={getStoryIssuesInput(selectedRecord)}
-                                onChange={(event) =>
-                                  updateSelectedField(
-                                    "storyIssuesInput",
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="Comma separated"
-                                className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2 font-normal"
-                              />
-                            </label>
+                            <fieldset className="block text-sm font-semibold">
+                              <legend>Issue Types</legend>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {STORY_ISSUE_TYPES.map((issueType) => {
+                                  const selectedIssueTypes =
+                                    getStoryIssueTypes(selectedRecord);
+                                  const isSelected =
+                                    selectedIssueTypes.includes(
+                                      issueType.value,
+                                    );
+
+                                  return (
+                                    <label
+                                      key={issueType.value}
+                                      className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                                        isSelected
+                                          ? "border-[#405b6d] bg-[#405b6d] text-white"
+                                          : "border-[#cfd3d7] bg-white text-[#405b6d] hover:border-[#405b6d]"
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => {
+                                          const nextIssueTypes = isSelected
+                                            ? selectedIssueTypes.filter(
+                                                (value) =>
+                                                  value !== issueType.value,
+                                              )
+                                            : [
+                                                ...selectedIssueTypes,
+                                                issueType.value,
+                                              ];
+                                          updateSelectedRecord((record) => ({
+                                            ...record,
+                                            story_issue_type: nextIssueTypes,
+                                            storyIssuesInput: nextIssueTypes,
+                                          }));
+                                        }}
+                                        className="sr-only"
+                                      />
+                                      {issueType.label}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </fieldset>
 
                             <label className="block text-sm font-semibold">
                               Story Summary
@@ -3560,7 +3998,7 @@ const AdminDashboard = () => {
                               </label>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+                            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
                               <label className="block text-sm font-semibold">
                                 Phone
                                 <input
@@ -3600,26 +4038,76 @@ const AdminDashboard = () => {
                                   className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2 font-normal"
                                 />
                               </label>
+                              <label className="block text-sm font-semibold">
+                                Best Time to Call
+                                <select
+                                  value={
+                                    selectedRecord.adv_best_time_to_call || ""
+                                  }
+                                  onChange={(event) =>
+                                    updateSelectedField(
+                                      "adv_best_time_to_call",
+                                      event.target.value,
+                                    )
+                                  }
+                                  className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2 font-normal"
+                                >
+                                  <option value="" disabled>
+                                    Not specified
+                                  </option>
+                                  <option value="morning">Morning</option>
+                                  <option value="afternoon">Afternoon</option>
+                                  <option value="evening">Evening</option>
+                                  <option value="night">Night</option>
+                                </select>
+                              </label>
                             </div>
 
-                            <label className="block text-sm font-semibold">
-                              Issue Types
-                              <input
-                                value={
-                                  Array.isArray(selectedRecord.adv_issue_types)
-                                    ? selectedRecord.adv_issue_types.join(", ")
-                                    : selectedRecord.adv_issue_types || ""
-                                }
-                                onChange={(event) =>
-                                  updateSelectedField(
-                                    "adv_issue_types",
-                                    parseCommaList(event.target.value),
-                                  )
-                                }
-                                placeholder="Comma separated"
-                                className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2 font-normal"
-                              />
-                            </label>
+                            <fieldset className="block text-sm font-semibold">
+                              <legend>Issue Types</legend>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {ADVOCATE_ISSUE_TYPES.map((issueType) => {
+                                  const selectedIssueTypes =
+                                    getAdvocateIssueTypes(selectedRecord);
+                                  const isSelected =
+                                    selectedIssueTypes.includes(
+                                      issueType.value,
+                                    );
+
+                                  return (
+                                    <label
+                                      key={issueType.value}
+                                      className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                                        isSelected
+                                          ? "border-[#405b6d] bg-[#405b6d] text-white"
+                                          : "border-[#cfd3d7] bg-white text-[#405b6d] hover:border-[#405b6d]"
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() =>
+                                          updateSelectedField(
+                                            "adv_issue_types",
+                                            isSelected
+                                              ? selectedIssueTypes.filter(
+                                                  (value) =>
+                                                    value !== issueType.value,
+                                                )
+                                              : [
+                                                  ...selectedIssueTypes,
+                                                  issueType.value,
+                                                ],
+                                          )
+                                        }
+                                        className="sr-only"
+                                      />
+                                      {issueType.label}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            </fieldset>
 
                             <label className="block text-sm font-semibold">
                               Issue Summary
@@ -3667,20 +4155,50 @@ const AdminDashboard = () => {
                               </label>
                             </div>
 
-                            <label className="block text-sm font-semibold">
-                              Internal Notes
-                              <textarea
-                                value={selectedRecord.internal_notes || ""}
-                                onChange={(event) =>
-                                  updateSelectedField(
-                                    "internal_notes",
-                                    event.target.value,
-                                  )
-                                }
-                                rows={4}
-                                className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2 font-normal"
-                              />
-                            </label>
+                            {getAdvocateUploads(selectedRecord).length > 0 && (
+                              <div className="block text-sm font-semibold">
+                                Uploads
+                                <div className="mt-2 max-h-72 space-y-2 overflow-y-auto rounded border border-[#e5e5e5] bg-[#f8fafb] p-2">
+                                  {getAdvocateUploads(selectedRecord).map(
+                                    (upload, index) => {
+                                      const fileUrl =
+                                        getAdvocateUploadUrl(upload);
+                                      const fileLabel =
+                                        getAdvocateUploadLabel(upload);
+
+                                      return (
+                                        <div
+                                          key={
+                                            fileUrl ||
+                                            `${fileLabel}-${index}`
+                                          }
+                                          className="flex items-center gap-2 rounded border border-[#e5e5e5] bg-white px-3 py-2 font-normal"
+                                        >
+                                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#eaf1f6] text-xs font-bold text-[#405b6d]">
+                                            {index + 1}
+                                          </span>
+                                          {fileUrl ? (
+                                            <a
+                                              href={buildAssetUrl(fileUrl)}
+                                              target="_blank"
+                                              rel="noreferrer"
+                                              title={fileLabel}
+                                              className="min-w-0 truncate text-[#405b6d] underline-offset-2 hover:underline"
+                                            >
+                                              {fileLabel}
+                                            </a>
+                                          ) : (
+                                            <span className="min-w-0 truncate text-[#405b6d]">
+                                              {fileLabel}
+                                            </span>
+                                          )}
+                                        </div>
+                                      );
+                                    },
+                                  )}
+                                </div>
+                              </div>
+                            )}
                           </div>
                         )}
 
@@ -3956,20 +4474,57 @@ const AdminDashboard = () => {
                               </label>
                             </div>
 
-                            <label className="block text-sm font-semibold">
-                              Practice Areas
-                              <input
-                                value={getPracticeAreasInput(selectedRecord)}
-                                onChange={(event) =>
-                                  updateSelectedField(
-                                    "practiceAreasInput",
-                                    event.target.value,
-                                  )
-                                }
-                                placeholder="Comma separated"
-                                className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2 font-normal"
-                              />
-                            </label>
+                            <fieldset className="block text-sm font-semibold">
+                              <legend>Practice Areas</legend>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {ATTORNEY_PRACTICE_AREAS.map(
+                                  (practiceArea) => {
+                                    const selectedPracticeAreas =
+                                      getAttorneyPracticeAreas(selectedRecord);
+                                    const isSelected =
+                                      selectedPracticeAreas.includes(
+                                        practiceArea,
+                                      );
+
+                                    return (
+                                      <label
+                                        key={practiceArea}
+                                        className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                                          isSelected
+                                            ? "border-[#405b6d] bg-[#405b6d] text-white"
+                                            : "border-[#cfd3d7] bg-white text-[#405b6d] hover:border-[#405b6d]"
+                                        }`}
+                                      >
+                                        <input
+                                          type="checkbox"
+                                          checked={isSelected}
+                                          onChange={() => {
+                                            const nextPracticeAreas = isSelected
+                                              ? selectedPracticeAreas.filter(
+                                                  (value) =>
+                                                    value !== practiceArea,
+                                                )
+                                              : [
+                                                  ...selectedPracticeAreas,
+                                                  practiceArea,
+                                                ];
+                                            updateSelectedRecord((record) => ({
+                                              ...record,
+                                              attorney_practice_areas:
+                                                nextPracticeAreas,
+                                              practiceAreasInput:
+                                                nextPracticeAreas,
+                                            }));
+                                          }}
+                                          className="sr-only"
+                                        />
+                                        {practiceArea}
+                                      </label>
+                                    );
+                                  },
+                                )}
+                              </div>
+                            </fieldset>
 
                             <label className="block text-sm font-semibold">
                               Listing Summary
@@ -4184,36 +4739,45 @@ const AdminDashboard = () => {
                               Page Title
                               <input
                                 value={selectedRecord.title || ""}
-                                onChange={(event) =>
-                                  updateSelectedField(
-                                    "title",
-                                    event.target.value,
-                                  )
-                                }
+                                onChange={(event) => {
+                                  const title = event.target.value;
+                                  updateSelectedRecord((record) => {
+                                    const shouldGenerateSlug =
+                                      record.slugAutoGenerated ||
+                                      !String(record.slug || "").trim();
+                                    return {
+                                      ...record,
+                                      title,
+                                      slug: shouldGenerateSlug
+                                        ? createSlug(title)
+                                        : record.slug,
+                                      slugAutoGenerated: shouldGenerateSlug,
+                                    };
+                                  });
+                                }}
                                 className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2 font-normal"
                               />
                             </label>
 
-                            {selectedRecord.id ? (
-                              <label className="block text-sm font-semibold">
-                                Slug
-                                <input
-                                  value={selectedRecord.slug || ""}
-                                  onChange={(event) =>
-                                    updateSelectedField(
-                                      "slug",
-                                      event.target.value,
-                                    )
-                                  }
-                                  className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2 font-normal"
-                                />
-                              </label>
-                            ) : (
-                              <p className="rounded bg-[#f7f8f9] px-3 py-2 text-xs font-semibold text-[#6a757d]">
-                                Slug will be generated by the backend from the
-                                title.
-                              </p>
-                            )}
+                            <label className="block text-sm font-semibold">
+                              Slug
+                              <input
+                                value={selectedRecord.slug || ""}
+                                onChange={(event) =>
+                                  updateSelectedRecord((record) => ({
+                                    ...record,
+                                    slug: createSlug(event.target.value),
+                                    slugAutoGenerated: false,
+                                  }))
+                                }
+                                placeholder="Generated from the title when empty"
+                                className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2 font-normal"
+                              />
+                              <span className="mt-1 block text-xs font-medium text-[#6a757d]">
+                                Existing slugs are preserved. Leave this empty
+                                to let the backend generate one.
+                              </span>
+                            </label>
 
                             <label className="block text-sm font-semibold">
                               Hero Title
@@ -4237,36 +4801,6 @@ const AdminDashboard = () => {
                                 updateSelectedField("hero_body", value)
                               }
                             />
-
-                            <label className="block text-sm font-semibold">
-                              Featured Image
-                              {selectedRecord.featured_image && (
-                                <img
-                                  src={buildAssetUrl(
-                                    selectedRecord.featured_image,
-                                  )}
-                                  alt=""
-                                  className="mt-2 h-32 w-full rounded border border-[#d7dadd] object-cover"
-                                />
-                              )}
-                              <input
-                                type="file"
-                                accept="image/png,image/jpeg,image/jpg,image/webp"
-                                onChange={(event) =>
-                                  updateSelectedField(
-                                    "featuredImageFile",
-                                    event.target.files?.[0] || null,
-                                  )
-                                }
-                                className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2 text-sm font-normal"
-                              />
-                              {selectedRecord.featuredImageFile && (
-                                <span className="mt-1 block text-xs font-semibold text-[#6a757d]">
-                                  Selected:{" "}
-                                  {selectedRecord.featuredImageFile.name}
-                                </span>
-                              )}
-                            </label>
 
                             <label className="block text-sm font-semibold">
                               SEO Title

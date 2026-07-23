@@ -17,12 +17,18 @@ import { normalizeUsPhone } from "../lib/phone";
 import { US_STATE_OPTIONS, getCitiesForState } from "../lib/usLocationData";
 
 const issueTypes = [
-  "Fines or Violations",
-  "Unfair Fees or Assessments",
-  "Board Harassment",
-  "Property Damage",
-  "Neglect or Unsafe Conditions",
-  "Selective Enforcement",
+  { label: "Fines or Violations", value: "fines or violations" },
+  { label: "Board Harassment", value: "board harassment" },
+  {
+    label: "Neglect or Unsafe Conditions",
+    value: "neglect or unsafe conditions",
+  },
+  {
+    label: "Unfair Fees or Assessments",
+    value: "unfair fees or assessments",
+  },
+  { label: "Property Damage", value: "property damage" },
+  { label: "Selective Enforcement", value: "selective enforcement" },
 ];
 
 const emptyFieldErrors = {
@@ -523,15 +529,15 @@ const SubmitYourStory = () => {
                 }`}
               >
                 {issueTypes.map((issue, index) => (
-                  <label key={issue} className="flex items-center gap-2">
+                  <label key={issue.value} className="flex items-center gap-2">
                     <input
                       id={`story_issue_type_${index}`}
                       type="checkbox"
                       name="story_issue_type"
-                      value={issue}
+                      value={issue.value}
                       onChange={() => clearFieldError("issueTypes")}
                     />
-                    {issue}
+                    {issue.label}
                   </label>
                 ))}
               </div>

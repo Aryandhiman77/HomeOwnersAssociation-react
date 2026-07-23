@@ -8,12 +8,18 @@ import { addLocalQueueRecord } from "../lib/adminLocalQueues";
 import { normalizeUsPhone } from "../lib/phone";
 
 const issueOptions = [
-  "Dispute Over Fines or Violations",
-  "Unfair Fees or Assessments",
-  "Harassment by HOA Board",
-  "Property Damage Issues",
-  "Rights and Access Denied",
-  "Other",
+  {
+    label: "Dispute Over Fines or Violations",
+    value: "dispute over fines or violations",
+  },
+  {
+    label: "Unfair Fees or Assessments",
+    value: "unfair fees or assessments",
+  },
+  { label: "Harassment by HOA Board", value: "harassment by hoa board" },
+  { label: "Property Damage Issues", value: "property damage issues" },
+  { label: "Rights and Access Denied", value: "rights and access denied" },
+  { label: "Other", value: "other" },
 ];
 
 const emptyFieldErrors = {
@@ -445,15 +451,17 @@ const HoaIssue = () => {
                 }`}
               >
                 {issueOptions.map((option, index) => (
-                  <div key={option} className="space-x-1 space-y-4">
+                  <div key={option.value} className="space-x-1 space-y-4">
                     <input
                       type="checkbox"
                       id={`issue-type-${index}`}
                       name="adv_issue_types"
-                      value={option}
+                      value={option.value}
                       onChange={() => clearFieldError("issueTypes")}
                     />
-                    <label htmlFor={`issue-type-${index}`}>{option}</label>
+                    <label htmlFor={`issue-type-${index}`}>
+                      {option.label}
+                    </label>
                   </div>
                 ))}
               </div>
