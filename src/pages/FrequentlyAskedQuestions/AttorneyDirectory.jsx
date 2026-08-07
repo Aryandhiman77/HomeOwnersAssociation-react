@@ -65,6 +65,17 @@ function buildParams(filters, page = 1) {
   if (filters.state)        params.set("state",         filters.state);
   if (filters.city)         params.set("city",          filters.city);
   if (filters.keyword)      params.set("keyword",       filters.keyword);
+
+  if (filters.practiceArea) {
+    if (Array.isArray(filters.practiceArea)) {
+      filters.practiceArea.forEach((area) => {
+        if (area) params.append("practice_area", area);
+      });
+    } else {
+      params.set("practice_area", filters.practiceArea);
+    }
+  }
+
   return params.toString();
 }
 
