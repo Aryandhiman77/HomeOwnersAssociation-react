@@ -1,8 +1,20 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 import {
-  MdSearch, MdKeyboardArrowDown, MdLocationOn,
-  MdBookmark, MdOutlineBookmarkBorder, MdGridView, MdList, MdKeyboardArrowRight,
+  MdSearch,
+  MdKeyboardArrowDown,
+  MdLocationOn,
+  MdBookmark,
+  MdOutlineBookmarkBorder,
+  MdGridView,
+  MdList,
+  MdKeyboardArrowRight,
 } from "react-icons/md";
 import { FaGavel, FaCity } from "react-icons/fa";
 import { BsInfoCircleFill, BsCheckCircleFill } from "react-icons/bs";
@@ -62,9 +74,9 @@ const PRACTICE_AREAS = [
 ───────────────────────────────────────── */
 function buildParams(filters, page = 1) {
   const params = new URLSearchParams({ page: String(page), limit: "12" });
-  if (filters.state)        params.set("state",         filters.state);
-  if (filters.city)         params.set("city",          filters.city);
-  if (filters.keyword)      params.set("keyword",       filters.keyword);
+  if (filters.state) params.set("state", filters.state);
+  if (filters.city) params.set("city", filters.city);
+  if (filters.keyword) params.set("keyword", filters.keyword);
 
   if (filters.practiceArea) {
     if (Array.isArray(filters.practiceArea)) {
@@ -82,7 +94,12 @@ function buildParams(filters, page = 1) {
 /* ── map attorney API response → card shape ── */
 function toCard(attorney) {
   const name = attorney.attorney_name || "Attorney";
-  const initials = name.split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+  const initials = name
+    .split(" ")
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
   const practiceArea = Array.isArray(attorney.attorney_practice_areas)
     ? attorney.attorney_practice_areas[0]
     : attorney.attorney_practice_areas;
@@ -91,15 +108,17 @@ function toCard(attorney) {
   return {
     id: attorney._id || attorney.id || slug || name,
     name,
-    firm:     attorney.attorney_firm     || "Independent Attorney",
-    city:     attorney.attorney_city     || "",
-    state:    attorney.attorney_state    || "",
-    location: [attorney.attorney_city, attorney.attorney_state].filter(Boolean).join(", "),
+    firm: attorney.attorney_firm || "Independent Attorney",
+    city: attorney.attorney_city || "",
+    state: attorney.attorney_state || "",
+    location: [attorney.attorney_city, attorney.attorney_state]
+      .filter(Boolean)
+      .join(", "),
     initials,
-    tag:      practiceArea               || "HOA Attorney",
-    desc:     attorney.attorney_summary  || attorney.attorney_bio || "",
-    phone:    attorney.attorney_phone    || "",
-    website:  attorney.attorney_website  || "",
+    tag: practiceArea || "HOA Attorney",
+    desc: attorney.attorney_summary || attorney.attorney_bio || "",
+    phone: attorney.attorney_phone || "",
+    website: attorney.attorney_website || "",
     slug,
     raw: attorney,
   };
@@ -115,21 +134,21 @@ function normalizeSavedAttorney(attorney) {
 ══════════════════════════════════════════ */
 const AttorneyDirectory = () => {
   const [searchParams] = useSearchParams();
-  const [attorneys,  setAttorneys]  = useState([]);
-  const [meta,       setMeta]       = useState(null);
-  const [isLoading,  setLoading]    = useState(true);
-  const [error,      setError]      = useState("");
-  const [page,       setPage]       = useState(1);
-  const [viewMode,   setViewMode]   = useState("grid"); // grid | list
+  const [attorneys, setAttorneys] = useState([]);
+  const [meta, setMeta] = useState(null);
+  const [isLoading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [viewMode, setViewMode] = useState("grid"); // grid | list
   const [retryAttempt, setRetryAttempt] = useState(0);
   const [savedAttorneys, setSavedAttorneys] = useState(readSavedAttorneys);
   const [showSavedOnly, setShowSavedOnly] = useState(false);
 
   const [filters, setFilters] = useState({
-    state:        normalizeUsState(searchParams.get("state")),
-    city:         "",
+    state: normalizeUsState(searchParams.get("state")),
+    city: "",
     practiceArea: "",
-    keyword:      "",
+    keyword: "",
   });
 
   /* debounce keyword so we don't fire on every keystroke */
@@ -159,7 +178,9 @@ const AttorneyDirectory = () => {
     if (!saveKey) return;
 
     setSavedAttorneys((current) => {
-      const exists = current.some((item) => getAttorneySaveKey(item) === saveKey);
+      const exists = current.some(
+        (item) => getAttorneySaveKey(item) === saveKey,
+      );
       const nextRecords = exists
         ? current.filter((item) => getAttorneySaveKey(item) !== saveKey)
         : [
@@ -174,7 +195,6 @@ const AttorneyDirectory = () => {
       return nextRecords;
     });
   }, []);
-
 
   /* effective filters sent to API */
   const effectiveFilters = useMemo(
@@ -208,7 +228,7 @@ const AttorneyDirectory = () => {
 
   useEffect(() => {
     const controller = new AbortController();
-    let retryTimer   = null;
+    let retryTimer = null;
     retryCount.current = 0;
 
     const attempt = async () => {
@@ -247,19 +267,22 @@ const AttorneyDirectory = () => {
   }, [fetchAttorneys]);
 
   /* reset page on filter change */
-  const updateFilter = useCallback((field, value) => {
-    setPage(1);
-    if (field === "keyword") {
-      handleKeyword(value);
-      return;
-    }
+  const updateFilter = useCallback(
+    (field, value) => {
+      setPage(1);
+      if (field === "keyword") {
+        handleKeyword(value);
+        return;
+      }
 
-    setFilters((f) => ({
-      ...f,
-      [field]: value,
-      ...(field === "state" ? { city: "" } : {}),
-    }));
-  }, [handleKeyword]);
+      setFilters((f) => ({
+        ...f,
+        [field]: value,
+        ...(field === "state" ? { city: "" } : {}),
+      }));
+    },
+    [handleKeyword],
+  );
 
   const filteredAttorneys = useMemo(() => {
     if (!filters.practiceArea) return attorneys;
@@ -274,19 +297,22 @@ const AttorneyDirectory = () => {
       );
     });
   }, [attorneys, filters.practiceArea]);
-  const cards        = useMemo(() => filteredAttorneys.map(toCard), [filteredAttorneys]);
+  const cards = useMemo(
+    () => filteredAttorneys.map(toCard),
+    [filteredAttorneys],
+  );
   const displayCards = showSavedOnly ? savedCards : cards;
-  const resultCount  = showSavedOnly
+  const resultCount = showSavedOnly
     ? savedCards.length
     : filters.practiceArea
       ? cards.length
-      : meta?.totalResults ?? cards.length;
-  const totalPages   = showSavedOnly || filters.practiceArea ? 1 : meta?.totalPages   ?? 1;
+      : (meta?.totalResults ?? cards.length);
+  const totalPages =
+    showSavedOnly || filters.practiceArea ? 1 : (meta?.totalPages ?? 1);
 
   return (
     <div className="min-h-screen bg-white p-4 md:p-12 font-sans text-[#333333]">
       <div className="max-w-7xl mx-auto">
-
         {/* ── Page header ── */}
         <div className="flex justify-between items-start mb-8">
           <div className="space-y-1">
@@ -294,14 +320,17 @@ const AttorneyDirectory = () => {
               Find a Homeowner Attorney
             </h1>
             <p className="text-[#666666] text-lg">
-              Search approved and published attorney listings by location, practice area, and keyword.
+              Search approved and published attorney listings by location,
+              practice area, and keyword.
             </p>
           </div>
 
           {/* State indicator */}
           <div className="hidden lg:flex items-center gap-4">
             <div className="text-right">
-              <p className="text-[11px] text-[#666666] font-semibold">Searching in</p>
+              <p className="text-[11px] text-[#666666] font-semibold">
+                Searching in
+              </p>
               <p className="text-[28px] font-bold text-[#c8102e] leading-none py-1">
                 {filters.state ? filters.state.toUpperCase() : "ALL STATES"}
               </p>
@@ -316,7 +345,8 @@ const AttorneyDirectory = () => {
         <div className="bg-white rounded-[20px] border border-[#eeeeee] shadow-sm p-7 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 mb-10">
           {/* Step 1 — State */}
           <FilterStep
-            step={1} label="Select State"
+            step={1}
+            label="Select State"
             success={!!filters.state}
             hint={filters.state ? "State selected" : "Choose a state"}
           >
@@ -336,7 +366,8 @@ const AttorneyDirectory = () => {
 
           {/* Step 2 — City */}
           <FilterStep
-            step={2} label="Select City / County"
+            step={2}
+            label="Select City / County"
             hint={
               !filters.state
                 ? "Choose a state first"
@@ -367,8 +398,13 @@ const AttorneyDirectory = () => {
           </FilterStep>
           {/* Step 3 - Practice area */}
           <FilterStep
-            step={3} label="Type / Practice Area"
-            hint={filters.practiceArea ? "Practice area selected" : "Choose a practice area"}
+            step={3}
+            label="Type / Practice Area"
+            hint={
+              filters.practiceArea
+                ? "Practice area selected"
+                : "Choose a practice area"
+            }
             success={!!filters.practiceArea}
             divider
           >
@@ -378,12 +414,20 @@ const AttorneyDirectory = () => {
               className="w-full p-3 bg-[#f9f9f7] border border-[#dddddd] rounded-lg appearance-none text-[#555555] text-sm focus:outline-none"
             >
               <option value="">All Practice Areas</option>
-              {PRACTICE_AREAS.map((a) => <option key={a} value={a}>{a}</option>)}
+              {PRACTICE_AREAS.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
             </select>
           </FilterStep>
 
           {/* Step 4 - Keyword */}
-          <FilterStep step={4} label="Keyword Search" hint="Enter keywords (optional)">
+          <FilterStep
+            step={4}
+            label="Keyword Search"
+            hint="Enter keywords (optional)"
+          >
             <div className="relative">
               <input
                 type="text"
@@ -392,49 +436,90 @@ const AttorneyDirectory = () => {
                 placeholder="Search by keyword..."
                 className="w-full p-3 bg-[#f9f9f7] border border-[#dddddd] rounded-lg text-sm focus:outline-none pr-10"
               />
-              <MdSearch className="absolute right-3 top-3.5 text-[#999999]" size={20} />
+              <MdSearch
+                className="absolute right-3 top-3.5 text-[#999999]"
+                size={20}
+              />
             </div>
           </FilterStep>
         </div>
 
         {/* ── Practice area quick-filter pills ── */}
         <div className="flex flex-wrap items-center gap-3 mb-8">
-          <span className="text-[15px] font-bold text-[#444444] mr-2">Popular Practice Areas</span>
+          <span className="text-[15px] font-bold text-[#444444] mr-2">
+            Popular Practice Areas
+          </span>
 
           <PracticeBtn
             icon={<FaCity size={18} />}
             label="HOA & Condo Disputes"
             active={filters.practiceArea === "HOA & Condo Disputes"}
-            onClick={() => updateFilter("practiceArea",
-              filters.practiceArea === "HOA & Condo Disputes" ? "" : "HOA & Condo Disputes")}
+            onClick={() =>
+              updateFilter(
+                "practiceArea",
+                filters.practiceArea === "HOA & Condo Disputes"
+                  ? ""
+                  : "HOA & Condo Disputes",
+              )
+            }
           />
           <PracticeBtn
             icon={<PiHouseLight size={18} />}
             label="Property Damage / Neglect"
             active={filters.practiceArea === "Property Damage / Neglect"}
-            onClick={() => updateFilter("practiceArea",
-              filters.practiceArea === "Property Damage / Neglect" ? "" : "Property Damage / Neglect")}
+            onClick={() =>
+              updateFilter(
+                "practiceArea",
+                filters.practiceArea === "Property Damage / Neglect"
+                  ? ""
+                  : "Property Damage / Neglect",
+              )
+            }
           />
           <PracticeBtn
             icon={<GoShieldCheck size={18} />}
             label="Selective Enforcement"
             active={filters.practiceArea === "Selective Enforcement"}
-            onClick={() => updateFilter("practiceArea",
-              filters.practiceArea === "Selective Enforcement" ? "" : "Selective Enforcement")}
+            onClick={() =>
+              updateFilter(
+                "practiceArea",
+                filters.practiceArea === "Selective Enforcement"
+                  ? ""
+                  : "Selective Enforcement",
+              )
+            }
           />
           <PracticeBtn
             icon={<FaRegHandshake size={18} />}
             label="Mediation & Pre-Suit Help"
             active={filters.practiceArea === "Mediation & Pre-Suit Help"}
-            onClick={() => updateFilter("practiceArea",
-              filters.practiceArea === "Mediation & Pre-Suit Help" ? "" : "Mediation & Pre-Suit Help")}
+            onClick={() =>
+              updateFilter(
+                "practiceArea",
+                filters.practiceArea === "Mediation & Pre-Suit Help"
+                  ? ""
+                  : "Mediation & Pre-Suit Help",
+              )
+            }
           />
 
           {/* Clear filters */}
-          {(filters.state || filters.city || filters.practiceArea || filters.keyword) && (
+          {(filters.state ||
+            filters.city ||
+            filters.practiceArea ||
+            filters.keyword) && (
             <button
               type="button"
-              onClick={() => { setFilters({ state: "", city: "", practiceArea: "", keyword: "" }); setDebouncedKeyword(""); setPage(1); }}
+              onClick={() => {
+                setFilters({
+                  state: "",
+                  city: "",
+                  practiceArea: "",
+                  keyword: "",
+                });
+                setDebouncedKeyword("");
+                setPage(1);
+              }}
               className="px-4 py-2 text-[13px] text-[#c8102e] border border-[#c8102e] rounded-full font-semibold hover:bg-red-50 transition"
             >
               Clear filters ✕
@@ -446,7 +531,9 @@ const AttorneyDirectory = () => {
         <div className="flex justify-between items-center mb-6 border-b border-[#eeeeee] pb-4">
           <div>
             <h2 className="text-[26px] font-bold text-[#0a4d2c]">
-              {isLoading && !showSavedOnly ? "Loading..." : `${resultCount} ${showSavedOnly ? "Saved " : ""}Attorney${resultCount !== 1 ? "s" : ""} Found`}
+              {isLoading && !showSavedOnly
+                ? "Loading..."
+                : `${resultCount} ${showSavedOnly ? "Saved " : ""}Attorney${resultCount !== 1 ? "s" : ""} Found`}
             </h2>
             <p className="text-[13px] text-[#888888] font-medium">
               {showSavedOnly ? (
@@ -464,8 +551,12 @@ const AttorneyDirectory = () => {
             <button
               type="button"
               onClick={() => setShowSavedOnly((current) => !current)}
-              title={showSavedOnly ? "Show all attorneys" : "Show saved attorneys"}
-              aria-label={showSavedOnly ? "Show all attorneys" : "Show saved attorneys"}
+              title={
+                showSavedOnly ? "Show all attorneys" : "Show saved attorneys"
+              }
+              aria-label={
+                showSavedOnly ? "Show all attorneys" : "Show saved attorneys"
+              }
               className={`relative inline-flex h-9 w-9 items-center justify-center rounded-lg border transition ${
                 showSavedOnly
                   ? "border-[#0a4d2c] bg-[#0a4d2c] text-white"
@@ -503,7 +594,8 @@ const AttorneyDirectory = () => {
               Could not load attorneys right now.
             </p>
             <p className="text-[13px] text-[#888888] mb-4">
-              The server may be waking up — this usually takes under 30 seconds on first load.
+              The server may be waking up — this usually takes under 30 seconds
+              on first load.
             </p>
             <button
               type="button"
@@ -512,7 +604,9 @@ const AttorneyDirectory = () => {
                 setRetryAttempt(0);
                 setError("");
                 setLoading(true);
-                getJson(`/api/public/attorneys?${buildParams(effectiveFilters, page)}`)
+                getJson(
+                  `/api/public/attorneys?${buildParams(effectiveFilters, page)}`,
+                )
                   .then((res) => {
                     setAttorneys(Array.isArray(res.data) ? res.data : []);
                     setMeta(res.meta || null);
@@ -533,12 +627,16 @@ const AttorneyDirectory = () => {
           <div>
             {retryAttempt > 0 && (
               <p className="text-center text-[13px] text-[#888888] mb-4 font-medium">
-                Server is warming up, retrying… (attempt {retryAttempt}/{MAX_RETRIES})
+                Server is warming up, retrying… (attempt {retryAttempt}/
+                {MAX_RETRIES})
               </p>
             )}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 mb-16">
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="rounded-[15px] border border-[#eeeeee] p-5 animate-pulse">
+                <div
+                  key={i}
+                  className="rounded-[15px] border border-[#eeeeee] p-5 animate-pulse"
+                >
                   <div className="flex gap-3 mb-4">
                     <div className="w-12 h-12 bg-gray-200 rounded-lg" />
                     <div className="flex-1 space-y-2">
@@ -562,7 +660,9 @@ const AttorneyDirectory = () => {
           <div className="rounded-[15px] border border-[#eeeeee] bg-[#f9f9f7] p-12 text-center mb-16">
             <FaGavel size={40} className="mx-auto text-[#cccccc] mb-4" />
             <p className="font-bold text-[#555555] text-lg">
-              {showSavedOnly ? "No saved attorneys yet." : "No approved attorneys are published for these filters."}
+              {showSavedOnly
+                ? "No saved attorneys yet."
+                : "No approved attorneys are published for these filters."}
             </p>
             <p className="text-[#888888] text-sm mt-1">
               {showSavedOnly
@@ -574,15 +674,29 @@ const AttorneyDirectory = () => {
 
         {/* ── Attorney grid/list ── */}
         {!isLoading && displayCards.length > 0 && (
-          <div className={`mb-16 ${
-            viewMode === "grid"
-              ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
-              : "flex flex-col gap-4"
-          }`}>
-            {displayCards.map((att) =>
+          <div
+            className={`mb-16 ${
               viewMode === "grid"
-                ? <AttorneyCard key={att.id} att={att} isSaved={savedAttorneyKeys.has(getAttorneySaveKey(att))} onToggleSave={toggleSavedAttorney} />
-                : <AttorneyRow  key={att.id} att={att} isSaved={savedAttorneyKeys.has(getAttorneySaveKey(att))} onToggleSave={toggleSavedAttorney} />
+                ? "grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5"
+                : "flex flex-col gap-4"
+            }`}
+          >
+            {displayCards.map((att) =>
+              viewMode === "grid" ? (
+                <AttorneyCard
+                  key={att.id}
+                  att={att}
+                  isSaved={savedAttorneyKeys.has(getAttorneySaveKey(att))}
+                  onToggleSave={toggleSavedAttorney}
+                />
+              ) : (
+                <AttorneyRow
+                  key={att.id}
+                  att={att}
+                  isSaved={savedAttorneyKeys.has(getAttorneySaveKey(att))}
+                  onToggleSave={toggleSavedAttorney}
+                />
+              ),
             )}
           </div>
         )}
@@ -627,9 +741,12 @@ const AttorneyDirectory = () => {
               <FaGavel className="text-white" size={32} />
             </div>
             <div>
-              <h4 className="font-bold text-xl text-[#333333]">Are You a Homeowner Attorney?</h4>
+              <h4 className="font-bold text-xl text-[#333333]">
+                Are You a Homeowner Attorney?
+              </h4>
               <p className="text-[#666666] text-sm mt-1">
-                Submit your listing and connect with homeowners who need your help.
+                Submit your listing and connect with homeowners who need your
+                help.
               </p>
             </div>
           </div>
@@ -642,7 +759,6 @@ const AttorneyDirectory = () => {
             </Link>
           </div>
         </div>
-
       </div>
     </div>
   );
@@ -655,7 +771,9 @@ const AttorneyDirectory = () => {
 /* Filter step wrapper */
 function FilterStep({ step, label, children, hint, success, divider }) {
   return (
-    <div className={`relative ${divider ? "md:border-l border-[#eeeeee] md:pl-6" : ""}`}>
+    <div
+      className={`relative ${divider ? "md:border-l border-[#eeeeee] md:pl-6" : ""}`}
+    >
       <div className="flex items-center gap-2 mb-3">
         <span className="bg-[#c8102e] text-white w-[22px] h-[22px] rounded-full flex items-center justify-center text-[11px] font-bold shrink-0">
           {step}
@@ -664,10 +782,19 @@ function FilterStep({ step, label, children, hint, success, divider }) {
       </div>
       <div className="relative">
         {children}
-        <MdKeyboardArrowDown className="absolute right-3 top-3.5 text-[#999999] pointer-events-none" size={20} />
+        <MdKeyboardArrowDown
+          className="absolute right-3 top-3.5 text-[#999999] pointer-events-none"
+          size={20}
+        />
       </div>
-      <div className={`mt-2 flex items-center gap-1.5 text-[11px] font-medium ${success ? "text-[#0a4d2c]" : "text-[#888888]"}`}>
-        {success ? <BsCheckCircleFill size={12} /> : <BsInfoCircleFill size={12} />}
+      <div
+        className={`mt-2 flex items-center gap-1.5 text-[11px] font-medium ${success ? "text-[#0a4d2c]" : "text-[#888888]"}`}
+      >
+        {success ? (
+          <BsCheckCircleFill size={12} />
+        ) : (
+          <BsInfoCircleFill size={12} />
+        )}
         {hint}
       </div>
     </div>
@@ -702,8 +829,12 @@ function AttorneyCard({ att, isSaved, onToggleSave }) {
             {att.initials}
           </div>
           <div className="overflow-hidden">
-            <h3 className="font-bold text-[14px] text-[#333333] truncate">{att.name}</h3>
-            <p className="text-[11px] text-[#888888] leading-tight truncate">{att.firm}</p>
+            <h3 className="font-bold text-[14px] text-[#333333] truncate">
+              {att.name}
+            </h3>
+            <p className="text-[11px] text-[#888888] leading-tight truncate">
+              {att.firm}
+            </p>
             {att.location && (
               <p className="text-[11px] text-[#333333] font-bold flex items-center gap-0.5 mt-0.5">
                 <MdLocationOn size={12} /> {att.location}
@@ -717,7 +848,9 @@ function AttorneyCard({ att, isSaved, onToggleSave }) {
           </div>
         )}
         {att.desc && (
-          <p className="text-[12px] text-[#555555] leading-relaxed mb-4 line-clamp-3">{att.desc}</p>
+          <p className="text-[12px] text-[#555555] leading-relaxed mb-4 line-clamp-3">
+            {att.desc}
+          </p>
         )}
       </div>
       <div className="flex items-center gap-2">
@@ -739,7 +872,11 @@ function AttorneyCard({ att, isSaved, onToggleSave }) {
               : "border-[#dddddd] text-[#999999] hover:text-[#0a4d2c]"
           }`}
         >
-          {isSaved ? <MdBookmark size={20} /> : <MdOutlineBookmarkBorder size={20} />}
+          {isSaved ? (
+            <MdBookmark size={20} />
+          ) : (
+            <MdOutlineBookmarkBorder size={20} />
+          )}
         </button>
       </div>
     </div>
@@ -768,7 +905,9 @@ function AttorneyRow({ att, isSaved, onToggleSave }) {
           </p>
         )}
         {att.desc && (
-          <p className="text-[12px] text-[#777777] mt-1 line-clamp-2">{att.desc}</p>
+          <p className="text-[12px] text-[#777777] mt-1 line-clamp-2">
+            {att.desc}
+          </p>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
@@ -783,7 +922,11 @@ function AttorneyRow({ att, isSaved, onToggleSave }) {
               : "border-[#dddddd] text-[#999999] hover:text-[#0a4d2c]"
           }`}
         >
-          {isSaved ? <MdBookmark size={20} /> : <MdOutlineBookmarkBorder size={20} />}
+          {isSaved ? (
+            <MdBookmark size={20} />
+          ) : (
+            <MdOutlineBookmarkBorder size={20} />
+          )}
         </button>
         <Link
           to={`/find-attorney/${att.slug}`}
