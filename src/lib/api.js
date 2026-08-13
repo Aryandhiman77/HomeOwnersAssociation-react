@@ -21,7 +21,9 @@ function getStoredAdminToken() {
   return localStorage.getItem(ADMIN_TOKEN_KEY) || "";
 }
 
-function withAuthHeaders(headers = {}) {
+function withAuthHeaders(path, headers = {}) {
+  if (!isAdminRequestPath(path)) return headers;
+
   const token = getStoredAdminToken();
   if (!token || headers.Authorization) return headers;
   return { ...headers, Authorization: `Bearer ${token}` };
@@ -95,7 +97,7 @@ async function requestJson(path, options = {}) {
   const response = await fetchWithFriendlyNetworkError(
     buildApiUrl(path),
     {
-      headers: withAuthHeaders({
+      headers: withAuthHeaders(path, {
         Accept: "application/json",
         "Content-Type": "application/json",
         ...(headers || {}),
@@ -139,7 +141,7 @@ async function requestFormData(path, formData, options = {}) {
     {
       method: "POST",
       body: formData,
-      headers: withAuthHeaders({
+      headers: withAuthHeaders(path, {
         Accept: "application/json",
         ...(headers || {}),
       }),

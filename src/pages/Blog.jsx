@@ -18,12 +18,11 @@ function getRows(response) {
 }
 
 function getPostIdentifier(post) {
-  return post.id || post._id || post.slug || "";
+  return post.slug || post.id || post._id || "";
 }
 
 function getPostUrl(post) {
-  const identifier = getPostIdentifier(post);
-  return identifier ? `/blog/${encodeURIComponent(identifier)}` : "/blog";
+  return post.slug ? `/blog/${encodeURIComponent(post.slug)}` : "/blog";
 }
 
 function formatDate(value) {

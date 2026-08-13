@@ -3,16 +3,8 @@ import { Link, useParams } from "react-router-dom";
 import { FiArrowLeft } from "react-icons/fi";
 import { buildAssetUrl, getJson } from "../lib/api";
 
-const OBJECT_ID_PATTERN = /^[a-f\d]{24}$/i;
-
-function getRows(response) {
-  if (Array.isArray(response?.data)) return response.data;
-  if (Array.isArray(response?.records)) return response.records;
-  return [];
-}
-
-function normalizeBlog(response, fallback = null) {
-  const record = response?.data || response?.record || response || fallback;
+function normalizeBlog(response) {
+  const record = response?.data || response?.record || response;
   return record || null;
 }
 
@@ -87,46 +79,13 @@ function sanitizeHtml(html) {
   return template.innerHTML;
 }
 
-async function resolvePublishedBlogBySlug(slug, signal) {
-  const params = new URLSearchParams({
-    page: "1",
-    limit: "10",
-    search: slug,
-    status: "published",
-  });
-
-  const response = await getJson(`/api/admin/blogs?${params.toString()}`, {
-    signal,
-  });
-  const candidates = getRows(response);
-  const exact = candidates.find(
-    (post) => safelyDecode(post.slug || "") === slug && post.status === "published",
-  );
-
-  if (!exact) {
-    return null;
-  }
-
-  const id = exact.id || exact._id;
-  if (!id) {
-    return exact;
-  }
-
-  try {
-    const detailResponse = await getJson(`/blog/${id}`, { signal });
-    return normalizeBlog(detailResponse, exact);
-  } catch {
-    return exact;
-  }
-}
-
 const BlogDetail = () => {
-  const { id } = useParams();
+  const { slug: slugParam } = useParams();
   const [blog, setBlog] = useState(null);
   const [isLoading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  const identifier = safelyDecode(id || "");
+  const slug = safelyDecode(slugParam || "");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -137,27 +96,10 @@ const BlogDetail = () => {
       setBlog(null);
 
       try {
-        let record = null;
-
-        try {
-          const response = await getJson(`/blog/${identifier}`, {
-            signal: controller.signal,
-          });
-          record = normalizeBlog(response);
-        } catch (requestError) {
-          if (requestError.name === "AbortError") {
-            throw requestError;
-          }
-
-          if (!OBJECT_ID_PATTERN.test(identifier)) {
-            record = await resolvePublishedBlogBySlug(
-              identifier,
-              controller.signal,
-            );
-          } else {
-            throw requestError;
-          }
-        }
+        const response = await getJson(`/blog/${encodeURIComponent(slug)}`, {
+          signal: controller.signal,
+        });
+        const record = normalizeBlog(response);
 
         if (!record) {
           throw new Error("Blog article not found.");
@@ -173,14 +115,16 @@ const BlogDetail = () => {
           setError(requestError.message || "Blog article not found.");
         }
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
       }
     }
 
     loadBlog();
 
     return () => controller.abort();
-  }, [identifier]);
+  }, [slug]);
 
   useEffect(() => {
     if (!blog?.title && !blog?.seo_title) return undefined;
@@ -199,17 +143,23 @@ const BlogDetail = () => {
 
   if (isLoading) {
     return (
-      <main className="bg-[#f7f8f6] px-5 py-10 text-[#273b32] md:px-8">
-        <section className="mx-auto max-w-4xl border border-[#d8ddd5] bg-white p-8 shadow-sm">
-          <div className="animate-pulse">
-            <div className="h-4 w-32 bg-[#e6ebe7]" />
-            <div className="mt-5 h-10 w-3/4 bg-[#e6ebe7]" />
-            <div className="mt-6 h-72 bg-[#e6ebe7]" />
-            <div className="mt-8 space-y-3">
-              <div className="h-4 bg-[#edf1ee]" />
-              <div className="h-4 bg-[#edf1ee]" />
-              <div className="h-4 w-5/6 bg-[#edf1ee]" />
-            </div>
+      <main className="flex min-h-[60vh] items-center bg-[#f7f8f6] px-5 py-12 text-[#273b32] md:px-8">
+        <section
+          role="status"
+          aria-live="polite"
+          className="mx-auto flex min-h-72 w-full max-w-4xl flex-col items-center justify-center gap-4 border border-[#d8ddd5] bg-white p-8 text-center shadow-sm"
+        >
+          <span
+            aria-hidden="true"
+            className="h-12 w-12 animate-spin rounded-full border-4 border-[#bfd0c5] border-t-[#0a6b3b]"
+          />
+          <div>
+            <p className="text-xl font-bold text-[#0a4d2c]">
+              Loading article...
+            </p>
+            <p className="mt-2 text-sm text-[#5f6d64]">
+              Fetching the latest blog details.
+            </p>
           </div>
         </section>
       </main>
