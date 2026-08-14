@@ -3483,14 +3483,19 @@ const AdminDashboard = () => {
                           <th className="px-5 py-3">Title</th>
                           <th className="px-5 py-3">Submitted By</th>
                           <th className="px-5 py-3">Status</th>
-                          <th className="px-5 py-3">Created</th>
+                          {activeQueue !== "faqs" && (
+                            <th className="px-5 py-3">Created</th>
+                          )}
                           <th className="px-5 py-3">Action</th>
                         </tr>
                       </thead>
                       <tbody>
                         {isLoading && (
                           <tr>
-                            <td className="px-5 py-8 text-center" colSpan={6}>
+                            <td
+                              className="px-5 py-8 text-center"
+                              colSpan={activeQueue === "faqs" ? 5 : 6}
+                            >
                               Loading queue records...
                             </td>
                           </tr>
@@ -3499,13 +3504,19 @@ const AdminDashboard = () => {
                           filteredRecords.length === 0 &&
                           (frontendQueueNotes[activeQueue] ? (
                             <tr>
-                              <td className="px-5 py-8 text-center" colSpan={6}>
+                              <td
+                                className="px-5 py-8 text-center"
+                                colSpan={activeQueue === "faqs" ? 5 : 6}
+                              >
                                 {frontendQueueNotes[activeQueue]}
                               </td>
                             </tr>
                           ) : (
                             <tr>
-                              <td className="px-5 py-8 text-center" colSpan={6}>
+                              <td
+                                className="px-5 py-8 text-center"
+                                colSpan={activeQueue === "faqs" ? 5 : 6}
+                              >
                                 No records match the current filters.
                               </td>
                             </tr>
@@ -3540,9 +3551,11 @@ const AdminDashboard = () => {
                                   {formatStatus(record.status)}
                                 </span>
                               </td>
-                              <td className="px-5 py-4 text-sm">
-                                {formatDate(record.created_at)}
-                              </td>
+                              {activeQueue !== "faqs" && (
+                                <td className="px-5 py-4 text-sm">
+                                  {formatDate(record.created_at)}
+                                </td>
+                              )}
                               <td className="px-5 py-4">
                                 <button
                                   type="button"

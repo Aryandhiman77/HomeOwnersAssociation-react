@@ -1,5 +1,14 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { FiBookmark, FiChevronDown, FiChevronUp, FiSearch } from "react-icons/fi";
+import { Link } from "react-router-dom";
+import {
+  FiFileText,
+  FiMail,
+  FiMessageCircle,
+  FiMinus,
+  FiPlus,
+  FiSearch,
+} from "react-icons/fi";
+import DocumentPageHeader from "../components/DocumentPageHeader";
 import { getJson } from "../lib/api";
 import { sanitizeHtml } from "../lib/content";
 
@@ -20,20 +29,18 @@ function getSortOrder(faq, index) {
 
 const FrequentlyAskedQuestions = () => {
   const [faqs, setFaqs] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [activeCategory, setActiveCategory] = useState("All");
   const [query, setQuery] = useState("");
   const [search, setSearch] = useState("");
-  const [openFaqIds, setOpenFaqIds] = useState(() => new Set());
+  const [openFaqKey, setOpenFaqKey] = useState(null);
   const [isLoading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setSearch(query.trim());
-    }, 300);
-
+    const timer = setTimeout(() => setSearch(query.trim()), 300);
     return () => clearTimeout(timer);
   }, [query]);
-
 
   useEffect(() => {
     const controller = new AbortController();
@@ -44,190 +51,202 @@ const FrequentlyAskedQuestions = () => {
 
       try {
         const params = new URLSearchParams();
-        if (search) {
-          params.set("search", search);
-        }
+        if (search) params.set("search", search);
 
         const response = await getJson(`/faqs?${params.toString()}`, {
           signal: controller.signal,
         });
-        setFaqs(getRows(response));
+        const rows = getRows(response);
+        setFaqs(rows);
+
+        if (!search) {
+          setCategories(
+            [...new Set(rows.map((faq) => faq.category).filter(Boolean))].sort(
+              (left, right) => left.localeCompare(right),
+            ),
+          );
+        }
       } catch (requestError) {
         if (requestError.name !== "AbortError") {
           setError(requestError.message);
           setFaqs([]);
         }
       } finally {
-        if (!controller.signal.aborted) {
-          setLoading(false);
-        }
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
 
     loadFaqs();
-
     return () => controller.abort();
   }, [search]);
 
   const visibleFaqs = useMemo(() => {
-    return [...faqs].sort((left, right) => {
-      const leftOrder = getSortOrder(left, 0);
-      const rightOrder = getSortOrder(right, 0);
-      if (leftOrder !== rightOrder) return leftOrder - rightOrder;
-      return String(left.question || "").localeCompare(String(right.question || ""));
-    });
-  }, [faqs]);
+    return faqs
+      .filter(
+        (faq) => activeCategory === "All" || faq.category === activeCategory,
+      )
+      .sort((left, right) => {
+        const leftOrder = getSortOrder(left, 0);
+        const rightOrder = getSortOrder(right, 0);
+        if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+        return String(left.question || "").localeCompare(
+          String(right.question || ""),
+        );
+      });
+  }, [activeCategory, faqs]);
 
-  const allExpanded =
-    visibleFaqs.length > 0 &&
-    visibleFaqs.every((faq, index) => openFaqIds.has(getFaqKey(faq, index)));
+  const effectiveOpenFaqKey =
+    openFaqKey === null && visibleFaqs.length
+      ? getFaqKey(visibleFaqs[0], 0)
+      : openFaqKey;
 
-  const toggleFaq = (faq, index) => {
-    const faqKey = getFaqKey(faq, index);
-    setOpenFaqIds((current) => {
-      const next = new Set(current);
-      if (next.has(faqKey)) {
-        next.delete(faqKey);
-      } else {
-        next.add(faqKey);
-      }
-      return next;
-    });
-  };
-
-  const toggleAll = () => {
-    if (allExpanded) {
-      setOpenFaqIds(new Set());
-      return;
-    }
-
-    setOpenFaqIds(
-      new Set(visibleFaqs.map((faq, index) => getFaqKey(faq, index))),
-    );
+  const selectCategory = (category) => {
+    setActiveCategory(category);
+    setOpenFaqKey(null);
   };
 
   return (
-    <main className="bg-[#f7f8f6] px-5 py-12 text-[#253b32] md:px-8">
-      <section className="mx-auto max-w-5xl">
-        <p className="text-sm font-bold uppercase tracking-[0.18em] text-[#c8102e]">
-          Homeowner resources
-        </p>
-        <h1 className="mt-3 text-4xl font-bold text-[#0a4d2c] md:text-5xl">
-          Frequently Asked Questions
-        </h1>
-        <p className="mt-4 max-w-3xl text-lg leading-8 text-[#5f6d64]">
-          Find answers to common HOA Nightmares questions, submission workflow,
-          attorney directory usage, and review process basics.
-        </p>
+    <main className="min-h-screen bg-[#fbfcfb] text-[#1e2934]">
+      <DocumentPageHeader
+        title="Frequently Asked Questions"
+        description="HOA Nightmares is a nonprofit resource for homeowners. We share real stories, educational information, attorney-directory resources, and non-legal homeowner advocacy to help you understand your rights and options."
+      />
+      <section className="mx-auto max-w-[1320px] px-5 pb-12 md:px-8">
+        <div className="mt-7 rounded-xl border border-[#dce2dd] bg-white p-2.5 shadow-sm">
+          <label className="flex min-w-0 flex-1 items-center rounded-lg border border-[#dce2dd] bg-white px-4">
+            <FiSearch className="shrink-0 text-xl text-[#657069]" />
+            <span className="sr-only">Search FAQs</span>
+            <input
+              value={query}
+              onChange={(event) => {
+                setQuery(event.target.value);
+                setOpenFaqKey(null);
+              }}
+              placeholder="Search FAQs..."
+              className="w-full bg-transparent px-3 py-2.5 text-sm outline-none placeholder:text-[#778078]"
+            />
+          </label>
 
-        <div className="mt-8 flex items-center rounded-lg border border-[#d8ddd5] bg-white px-4 shadow-sm">
-          <FiSearch className="text-[#6f7a72]" />
-          <input
-            value={query}
-            onChange={(event) => {
-              setQuery(event.target.value);
-              setOpenFaqIds(new Set());
-            }}
-            placeholder="Search FAQs"
-            className="w-full bg-transparent p-3 outline-none"
-          />
-        </div>
-
-        {error && (
-          <p className="mt-6 rounded border border-red-200 bg-red-50 px-4 py-3 font-semibold text-red-700">
-            {error}
-          </p>
-        )}
-
-        <div className="mt-8 rounded-[14px] border border-[#e3e7e1] bg-white p-4 shadow-sm md:p-6">
-          <div className="mb-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded bg-[#0a6b3b] text-white">
-                <FiBookmark size={16} />
-              </span>
-              <h2 className="text-lg font-bold text-[#1d2f27]">
-                Popular Questions
-              </h2>
-            </div>
-
-            {visibleFaqs.length > 0 && !isLoading && (
-              <button
-                type="button"
-                onClick={toggleAll}
-                className="inline-flex items-center gap-2 text-xs font-bold text-[#0a4d2c] hover:text-black"
-              >
-                {allExpanded ? "Collapse All" : "Expand All"}
-                {allExpanded ? <FiChevronUp /> : <FiChevronDown />}
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            {isLoading && (
-              <div
-                role="status"
-                aria-live="polite"
-                className="flex min-h-36 flex-col items-center justify-center gap-3 rounded-lg border border-[#e3e7e1] bg-[#f7f8f6] p-5 text-center font-semibold text-[#0a4d2c]"
-              >
-                <span
-                  aria-hidden="true"
-                  className="h-9 w-9 animate-spin rounded-full border-4 border-[#bfd0c5] border-t-[#0a6b3b]"
-                />
-                <span>Loading FAQs...</span>
-              </div>
-            )}
-
-            {!isLoading && visibleFaqs.length === 0 && !error && (
-              <p className="rounded-lg border border-[#e3e7e1] bg-[#f7f8f6] p-5 text-center font-semibold">
-                No published FAQs match your search.
-              </p>
-            )}
-
-            {!isLoading && visibleFaqs.map((faq, index) => {
-              const faqKey = getFaqKey(faq, index);
-              const isOpen = openFaqIds.has(faqKey);
-              const answerHtml = sanitizeHtml(faq.answer || "");
-
+          <div
+            className="mt-2.5 flex flex-wrap gap-1.5"
+            aria-label="Filter FAQs by category"
+          >
+            {["All", ...categories].map((category) => {
+              const isActive = category === activeCategory;
               return (
-                <article
-                  key={faqKey}
-                  className="overflow-hidden rounded-lg border border-[#e6ebe6] bg-white shadow-sm transition hover:border-[#cfd8cf]"
+                <button
+                  key={category}
+                  type="button"
+                  onClick={() => selectCategory(category)}
+                  className={`rounded-full border px-3.5 py-1.5 text-xs font-bold leading-4 transition ${
+                    isActive
+                      ? "border-[#075b36] bg-[#075b36] text-white shadow-sm"
+                      : "border-[#91b29e] bg-white text-[#17633f] hover:bg-[#eef6f1]"
+                  }`}
                 >
-                  <button
-                    type="button"
-                    onClick={() => toggleFaq(faq, index)}
-                    aria-expanded={isOpen}
-                    className="flex w-full items-center gap-3 px-4 py-4 text-left"
-                  >
-                    <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0a6b3b] text-sm font-bold text-white">
-                      {index + 1}
-                    </span>
-                    <span className="min-w-0 flex-1 font-bold text-[#0a4d2c]">
-                      {faq.question}
-                    </span>
-                    <span className="shrink-0 text-[#2f4251]">
-                      {isOpen ? <FiChevronUp /> : <FiChevronDown />}
-                    </span>
-                  </button>
-
-                  {isOpen && (
-                    <div className="border-t border-[#edf0ed] px-4 pb-5 pl-14 pr-6 text-[#4f5f55]">
-                      {faq.category && (
-                        <p className="mt-4 text-xs font-bold uppercase tracking-[0.16em] text-[#c8102e]">
-                          {faq.category}
-                        </p>
-                      )}
-                      <div
-                        className="prose prose-neutral mt-3 max-w-none leading-7 [&_a]:font-bold [&_a]:text-[#0a4d2c] [&_p]:mb-3"
-                        dangerouslySetInnerHTML={{ __html: answerHtml }}
-                      />
-                    </div>
-                  )}
-                </article>
+                  {category}
+                </button>
               );
             })}
           </div>
         </div>
+
+        {error && (
+          <p className="mt-5 rounded-lg border border-red-200 bg-red-50 px-4 py-3 font-semibold text-red-700">
+            {error}
+          </p>
+        )}
+
+        <div className="mt-5 space-y-2.5">
+          {isLoading && (
+            <div className="flex min-h-40 flex-col items-center justify-center gap-3 rounded-xl border border-[#d7e1d9] bg-white font-semibold text-[#075b36]">
+              <span className="h-9 w-9 animate-spin rounded-full border-4 border-[#c8d8ce] border-t-[#075b36]" />
+              Loading FAQs...
+            </div>
+          )}
+
+          {!isLoading && visibleFaqs.length === 0 && !error && (
+            <p className="rounded-xl border border-[#dce2dd] bg-white p-8 text-center font-semibold">
+              No published FAQs match your filters.
+            </p>
+          )}
+
+          {!isLoading &&
+            visibleFaqs.map((faq, index) => {
+              const faqKey = getFaqKey(faq, index);
+              const isOpen = faqKey === effectiveOpenFaqKey;
+
+              return (
+                <article
+                  key={faqKey}
+                  className={`overflow-hidden rounded-xl border bg-white transition ${
+                    isOpen ? "border-[#79a98b] shadow-sm" : "border-[#dce2dd]"
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setOpenFaqKey(isOpen ? "" : faqKey)}
+                    aria-expanded={isOpen}
+                    className={`grid w-full grid-cols-[54px_1fr_24px] items-center gap-4 px-4 text-left md:grid-cols-[66px_1fr_28px] md:px-5 ${
+                      isOpen ? "pb-1 pt-4" : "py-3"
+                    }`}
+                  >
+                    <span
+                      className={`flex items-center justify-center border-r border-[#b9c9bf] text-lg font-extrabold text-[#c8102e] ${
+                        isOpen
+                          ? "h-14 rounded-full border border-r bg-white shadow-sm"
+                          : "h-7"
+                      }`}
+                    >
+                      {String(index + 1).padStart(2, "0")}
+                    </span>
+                    <span>
+                      {isOpen && faq.category && (
+                        <span className="mb-1 block text-[11px] font-extrabold uppercase tracking-[0.12em] text-[#c8102e]">
+                          {faq.category}
+                        </span>
+                      )}
+                      <span className="block text-base font-extrabold text-[#075b36] md:text-lg">
+                        {faq.question}
+                      </span>
+                    </span>
+                    <span className="text-xl font-bold text-[#075b36]">
+                      {isOpen ? <FiMinus /> : <FiPlus />}
+                    </span>
+                  </button>
+
+                  {isOpen && (
+                    <div
+                      className="prose prose-neutral max-w-none pb-4 pl-[88px] pr-12 text-sm leading-6 text-[#26352e] md:pl-[105px] [&_a]:font-bold [&_a]:text-[#075b36] [&_p:last-child]:mb-0 [&_p]:mb-2"
+                      dangerouslySetInnerHTML={{
+                        __html: sanitizeHtml(faq.answer || ""),
+                      }}
+                    />
+                  )}
+                </article>
+              );
+            })}
+        </div>
+
+        <aside className="mt-3 flex flex-col gap-5 rounded-xl border border-[#dce2dd] bg-white px-6 py-4 shadow-sm md:flex-row md:items-center">
+          <FiMessageCircle className="shrink-0 text-5xl text-[#075b36]" />
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-extrabold text-[#075b36]">
+              Still need help?
+            </h2>
+            <p className="mt-1 text-sm font-medium text-[#34453d]">
+              We&apos;re here to support homeowners with resources and guidance.
+            </p>
+          </div>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              to="/contact"
+              className="inline-flex items-center justify-center gap-2 rounded-md bg-[#075b36] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#06472b]"
+            >
+              <FiMail /> Contact Us
+            </Link>
+          </div>
+        </aside>
       </section>
     </main>
   );

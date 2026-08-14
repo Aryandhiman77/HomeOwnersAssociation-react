@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useLocation } from "react-router-dom";
 import logoimage from "../assets/images/footerImage.png";
 import Separator from "../components/Elements/Separator";
 import { IoIosPaperPlane, IoIosWarning } from "react-icons/io";
@@ -56,6 +57,7 @@ const FieldError = ({ id, message, className = "" }) =>
   ) : null;
 
 const SubmitYourStory = () => {
+  const location = useLocation();
   const [uploads, setUploads] = useState([]);
   const [uploadResetKey, setUploadResetKey] = useState(0);
   const [status, setStatus] = useState({ type: "", message: "" });
@@ -67,6 +69,9 @@ const SubmitYourStory = () => {
   const [isSubmitting, setSubmitting] = useState(false);
   const [selectedPropertyState, setSelectedPropertyState] = useState("");
   const [selectedPropertyCity, setSelectedPropertyCity] = useState("");
+  const [hasAcceptedDisclaimer, setHasAcceptedDisclaimer] = useState(
+    location.state?.homepageDisclaimerAccepted === true,
+  );
 
   const propertyCityOptions = useMemo(
     () => getCitiesForState(selectedPropertyState),
@@ -116,15 +121,12 @@ const SubmitYourStory = () => {
       .trim();
     const nextFieldErrors = {
       name:
-        storyName.length >= 2
-          ? ""
-          : "Please enter your first and last name.",
+        storyName.length >= 2 ? "" : "Please enter your first and last name.",
       email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(storyEmail)
         ? ""
         : "Please enter a valid email address.",
       state: storyState ? "" : "Please select the property state.",
-      city:
-        !storyState || storyCity ? "" : "Please select the property city.",
+      city: !storyState || storyCity ? "" : "Please select the property city.",
       summary: storySummary ? "" : "Please enter a brief issue summary.",
       issueTypes:
         selectedIssueTypes.length > 0
@@ -215,6 +217,7 @@ const SubmitYourStory = () => {
       setUploadResetKey((current) => current + 1);
       setSelectedPropertyState("");
       setSelectedPropertyCity("");
+      setHasAcceptedDisclaimer(false);
       setAgreementErrors({ disclaimer: false, consent: false });
       setFieldErrors(emptyFieldErrors);
       setStatus({
@@ -264,7 +267,9 @@ const SubmitYourStory = () => {
                   name="story_name"
                   required
                   aria-invalid={Boolean(fieldErrors.name)}
-                  aria-describedby={fieldErrors.name ? "story_name_error" : undefined}
+                  aria-describedby={
+                    fieldErrors.name ? "story_name_error" : undefined
+                  }
                   onChange={() => clearFieldError("name")}
                   className={`mx-2 border rounded-md border-[#b5b5b5] p-1 px-2 w-full max-w-xs ${
                     fieldErrors.name ? invalidFieldClass : ""
@@ -312,14 +317,16 @@ const SubmitYourStory = () => {
                     id="story_disclaimer"
                     name="story_disclaimer"
                     type="checkbox"
+                    checked={hasAcceptedDisclaimer}
                     aria-required="true"
                     aria-invalid={agreementErrors.disclaimer}
-                    onChange={() =>
+                    onChange={(event) => {
+                      setHasAcceptedDisclaimer(event.target.checked);
                       setAgreementErrors((current) => ({
                         ...current,
                         disclaimer: false,
-                      }))
-                    }
+                      }));
+                    }}
                     className={`mt-1.5 h-4 w-4 shrink-0 accent-[#00733a] transition-shadow ${
                       agreementErrors.disclaimer
                         ? "ring-2 ring-[#c8102e] ring-offset-2"
@@ -468,7 +475,7 @@ const SubmitYourStory = () => {
               </div>
             </div>
           </div>
-          <div className="w-full space-y-3">
+          <div className="w-full space-y-3 mt-2">
             <div>
               <label htmlFor="story_hoa_name" className="font-semibold text-xl">
                 My Community HOA{" "}
@@ -518,9 +525,7 @@ const SubmitYourStory = () => {
                 aria-label="Issue types"
                 aria-invalid={Boolean(fieldErrors.issueTypes)}
                 aria-describedby={
-                  fieldErrors.issueTypes
-                    ? "story_issue_type_error"
-                    : undefined
+                  fieldErrors.issueTypes ? "story_issue_type_error" : undefined
                 }
                 className={`grid grid-cols-2 gap-2 rounded-md ${
                   fieldErrors.issueTypes

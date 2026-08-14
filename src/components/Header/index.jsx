@@ -7,18 +7,14 @@ import { Link, useLocation } from "react-router-dom";
 
 import logo_1 from "../../assets/logo/logo-1.png";
 import logo_2 from "../../assets/logo/logo-2.png";
-import { getConfiguredUrl, getSiteSettings } from "../../lib/siteSettings";
+import newsletterLogo from "../../assets/logo/newsletter.webp";
+import { getConfiguredUrl } from "../../lib/siteSettings";
 
 /* ─── Full nav from site map ─── */
 const NAV_ITEMS = [
   { label: "Home", href: "/" },
   {
-    label: "Submit Your Story",
-    href: "/submit-story",
-    dropdown: [{ label: "Submit Your Story", href: "/submit-story" }],
-  },
-  {
-    label: "Non Homeowner Advocate",
+    label: "Non Legal Homeowner Advocate",
     href: "/non-legal-advocate",
     dropdown: [
       { label: "Overview", href: "/non-legal-advocate" },
@@ -45,7 +41,6 @@ const NAV_ITEMS = [
       { label: "Our Story", href: "/about-us" },
       { label: "Mission", href: "/about-us#mission" },
       { label: "Disclaimer", href: "/about-us#disclaimer" },
-      { label: "Non-Legal Notice", href: "/about-us#notice" },
     ],
   },
   {
@@ -57,14 +52,11 @@ const NAV_ITEMS = [
     //   { label: "Submit Tips",      href: "/contact?type=tips" },
     // ],
   },
-  { label: "Blog", href: "/blog" },
+  { label: "Newsletter", href: "/newsletter" },
+  { label: "Blog", href: "/blogs" },
   {
-    label: "Cart",
-    href: "/cart",
-    dropdown: [
-      { label: "View Cart", href: "/cart" },
-      { label: "Checkout", href: "/checkout" },
-    ],
+    label: "FAQs",
+    href: "/frequenty-asked-questions",
   },
 ];
 
@@ -72,13 +64,12 @@ function getNavHref(item) {
   return item?.href || item?.url || "/";
 }
 
-const Header = () => {
+const Header = ({ settings }) => {
   const { pathname } = useLocation();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeDropdown, setActiveDropdown] = useState(null);
   const [mobileExpanded, setMobileExpanded] = useState(null);
   const headerRef = useRef(null);
-  const [settings, setSettings] = useState(null);
 
   /* close desktop dropdown on outside click */
   useEffect(() => {
@@ -89,16 +80,6 @@ const Header = () => {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-
-    getSiteSettings({ signal: controller.signal })
-      .then(setSettings)
-      .catch(() => {});
-
-    return () => controller.abort();
   }, []);
 
   const navItems = settings?.navigationLabels?.length
@@ -151,6 +132,19 @@ const Header = () => {
             <div className="flex items-center gap-3 ml-4 shrink-0 justify-end">
               {/* social — hidden on small screens */}
               <div className="hidden items-center gap-2 xl:flex">
+                <a
+                  href={getSocialHref("newsletters", "/newsletter")}
+                  target="_blank"
+                  rel="noreferrer"
+                  aria-label="Newsletter"
+                  className="transition-opacity hover:opacity-75"
+                >
+                  <img
+                    src={newsletterLogo}
+                    alt=""
+                    className="h-7 w-7 rounded-md object-contain"
+                  />
+                </a>
                 <a
                   href={getSocialHref("facebook", "https://facebook.com")}
                   target="_blank"
@@ -225,7 +219,7 @@ const Header = () => {
                         onClick={() =>
                           setActiveDropdown(isOpen ? null : item.label)
                         }
-                        className={`flex items-center gap-[2px] px-2 py-[6px] text-[12px] 2xl:px-[10px] 2xl:text-[13px] whitespace-nowrap cursor-pointer select-none transition-colors
+                        className={`flex items-center gap-[2px] px-2 py-[6px] text-[15px] 2xl:px-[10px] whitespace-nowrap cursor-pointer select-none transition-colors
                           ${active ? "text-[#1a5c2a] font-semibold" : "text-gray-800 hover:text-[#1a5c2a]"}`}
                       >
                         {item.label}
@@ -237,7 +231,7 @@ const Header = () => {
                     ) : (
                       <Link
                         to={getNavHref(item)}
-                        className={`block px-2 py-[6px] text-[12px] 2xl:px-[10px] 2xl:text-[13px] whitespace-nowrap transition-colors
+                        className={`block px-2 py-[6px] text-[15px] 2xl:px-[10px] whitespace-nowrap transition-colors
                           ${active ? "text-[#1a5c2a] font-semibold" : "text-gray-800 hover:text-[#1a5c2a]"}`}
                       >
                         {item.label}
@@ -347,6 +341,18 @@ const Header = () => {
 
           {/* social icons inside mobile menu */}
           <div className="flex items-center gap-4 px-4 py-4 border-t border-gray-100">
+            <a
+              href={getSocialHref("newsletters", "/newsletter")}
+              target="_blank"
+              rel="noreferrer"
+              aria-label="Newsletter"
+            >
+              <img
+                src={newsletterLogo}
+                alt=""
+                className="h-7 w-7 rounded-md object-contain"
+              />
+            </a>
             <a
               href={getSocialHref("facebook", "https://facebook.com")}
               target="_blank"

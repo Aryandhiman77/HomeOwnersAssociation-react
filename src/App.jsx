@@ -1,6 +1,12 @@
 import React, { Suspense, lazy, useEffect } from "react";
 import Home from "./pages/Home";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import {
+  BrowserRouter,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+} from "react-router-dom";
 import Layout from "./components/Layout";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import AboutUs from "./pages/AboutUs";
@@ -8,7 +14,7 @@ import ContactUs from "./pages/ContactUs";
 import HoaIssue from "./pages/HoaIssue";
 import Overview from "./pages/NonLegalAdvocate/Overview";
 import IntakeForm from "./pages/NonLegalAdvocate/IntakeForm";
-import HowItWorks from "./pages/NonLegalAdvocate/HowItWorks";
+
 import AttorneyDirectory from "./pages/FrequentlyAskedQuestions/AttorneyDirectory";
 import AttorneyProfile from "./pages/FrequentlyAskedQuestions/AttorneyProfile";
 import HoaHorrorStories from "./pages/HoaHorrorStories";
@@ -27,6 +33,7 @@ import AttorneySubmissionForm from "./pages/FrequentlyAskedQuestions/Attorneysub
 import Blog from "./pages/Blog";
 import BlogDetail from "./pages/BlogDetail";
 import NotFound from "./pages/NotFound";
+import Mission from "./pages/Mission";
 
 const AdminDashboard = lazy(() => import("./pages/Admin/AdminDashboard"));
 
@@ -36,6 +43,16 @@ function RestoreScrollToTop() {
     window.scrollTo(0, 0);
   }, [pathname]);
   return null;
+}
+
+function SubmitStoryProtectedRoute() {
+  const location = useLocation();
+
+  if (location.state?.homepageDisclaimerAccepted !== true) {
+    return <Navigate to="/" replace />;
+  }
+
+  return <SubmitYourStory />;
 }
 
 const routeFallback = (
@@ -60,12 +77,11 @@ const App = () => {
           }
         />
 
-        
-
         <Route path="/" element={<Layout />}>
           <Route index element={<Home />} />
           <Route path="/about" element={<AboutUs />} />
           <Route path="/about-us" element={<AboutUs />} />
+          <Route path="/mission" element={<Mission />} />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route
             path="/terms-of-use"
@@ -74,13 +90,14 @@ const App = () => {
           <Route path="/hoa-issue-form" element={<HoaIssue />} />
           <Route path="/contact" element={<ContactUs />} />
           <Route path="/contact-form" element={<ContactUs />} />
-          <Route path="/submit-story" element={<SubmitYourStory />} />
-          <Route path="/submit-your-story" element={<SubmitYourStory />} />
-          <Route path="/thank-you" element={<ThankYou />} />
+          <Route path="/submit-story" element={<SubmitStoryProtectedRoute />} />
           <Route
-            path="/hoa-horror-stories"
-            element={<HoaHorrorStories />}
+            path="/submit-your-story"
+            element={<SubmitStoryProtectedRoute />}
           />
+          <Route path="/thank-you" element={<ThankYou />} />
+          <Route path="/hoa-horror-stories" element={<HoaHorrorStories />} />
+          <Route path="/horror-stories" element={<HoaHorrorStories />} />
           <Route
             path="/hoa-horror-stories/:slug"
             element={<HoaHorrorStoryDetail />}
@@ -95,14 +112,8 @@ const App = () => {
               />
             }
           />
-          <Route
-            path="/resources"
-            element={<Resources />}
-          />
-          <Route
-            path="/blog"
-            element={<Blog />}
-          />
+          <Route path="/resources" element={<Resources />} />
+          <Route path="/blog" element={<Blog />} />
           <Route path="/blogs" element={<Blog />} />
           <Route path="/blog/:slug" element={<BlogDetail />} />
           <Route
@@ -128,18 +139,21 @@ const App = () => {
             path="non-legal-advocate/disclaimer"
             element={<SettingsDisclaimerPage type="legal" />}
           />
-          <Route
-            path="non-legal-advocate/how-it-works"
-            element={<HowItWorks />}
-          />
+
           <Route
             path="attorneys/find-homeowner-attorney"
             element={<AttorneyDirectory />}
           />
           <Route path="/find-attorney" element={<AttorneyDirectory />} />
-          <Route path="/find-attorney/submit" element={<AttorneySubmissionForm />} />
+          <Route
+            path="/find-attorney/submit"
+            element={<AttorneySubmissionForm />}
+          />
           <Route path="/find-attorney/:slug" element={<AttorneyProfile />} />
-          <Route path="/attorneys/find-homeowner-attorney" element={<AttorneyDirectory />} />
+          <Route
+            path="/attorneys/find-homeowner-attorney"
+            element={<AttorneyDirectory />}
+          />
 
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Cart />} />
