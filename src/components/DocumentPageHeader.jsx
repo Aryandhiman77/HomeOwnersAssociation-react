@@ -4,12 +4,15 @@ const DocumentPageHeader = ({
   title,
   description,
   maxWidthClass = "max-w-[1320px]",
+  titleSizeClass = "text-[38px] sm:text-5xl",
 }) => {
   return (
     <header className="bg-[#fbfcfb] px-5 pt-9 text-[#1e2934] md:px-8 md:pt-12">
       <div className={`mx-auto ${maxWidthClass}`}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <h1 className="shrink-0 font-serif text-[38px] font-bold leading-none text-[#075b36] sm:text-5xl">
+          <h1
+            className={`shrink-0 font-serif font-bold leading-none text-[#075b36] ${titleSizeClass}`}
+          >
             {title}
           </h1>
           <div

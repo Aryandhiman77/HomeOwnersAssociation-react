@@ -12,6 +12,7 @@ const LEGAL_CONFIG = {
     endpoint: "/privacy-policy",
     title: "Privacy Policy",
     eyebrow: "Legal",
+    description: " ",
     fallback:
       "HOA Nightmares respects your privacy. This page explains how visitor and form information is handled on this website.",
   },
@@ -19,6 +20,7 @@ const LEGAL_CONFIG = {
     endpoint: "/terms-of-use",
     title: "Terms of Use",
     eyebrow: "Legal",
+    description: " ",
     fallback:
       "These terms describe visitor responsibilities, acceptable use, disclaimers, and limitations for using HOA Nightmares.",
   },
@@ -79,6 +81,7 @@ const LegalContentPage = ({ type = "privacy" }) => {
         title={config.title}
         description={config.description}
         maxWidthClass="max-w-[860px]"
+        titleSizeClass="text-[32px] sm:text-[40px]"
       />
       <section className="px-5 pb-10 pt-0 md:px-8">
         <article className="mx-auto max-w-[860px] py-0">

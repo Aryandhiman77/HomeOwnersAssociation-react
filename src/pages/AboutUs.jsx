@@ -1,6 +1,31 @@
 ﻿import React, { useEffect, useMemo, useState } from "react";
+import DocumentPageHeader from "../components/DocumentPageHeader";
+import footerLogo from "../assets/images/footerImage.png";
 import { getJson } from "../lib/api";
 import { sanitizeHtml } from "../lib/content";
+
+const aboutContentClass =
+  "space-y-2 text-base leading-8 [&_a]:font-bold [&_a]:text-green-800 [&_h2]:mt-5 [&_h2]:text-xl [&_h2]:font-bold [&_h3]:mt-4 [&_h3]:text-lg [&_h3]:font-bold [&_li]:ml-6 [&_ol]:list-decimal [&_p]:my-1 [&_ul]:list-disc";
+
+const AboutPageFrame = ({ children }) => (
+  <main className="min-h-screen bg-[#f7f8f6] text-black">
+    <DocumentPageHeader
+      title="About HOA Nightmares"
+      maxWidthClass="max-w-[860px]"
+      titleSizeClass="text-[32px] sm:text-[40px]"
+    />
+    <section className="px-5 pb-12 pt-3 md:px-8">
+      <article className="mx-auto max-w-[860px] py-0">
+        {children}
+        <img
+          src={footerLogo}
+          alt="HOA Nightmares"
+          className="mx-auto mt-7 h-auto w-full max-w-[150px] object-contain"
+        />
+      </article>
+    </section>
+  </main>
+);
 
 const AboutUs = () => {
   const [cmsContent, setCmsContent] = useState("");
@@ -19,37 +44,18 @@ const AboutUs = () => {
 
   if (cmsHtml) {
     return (
-      <div className="max-w-7xl mx-auto p-3">
-        <div className="border border-t-10 border-black h-full mx-5 my-10 relative sm:mx-20 xl:mx-40">
-          <div className="bg-white left-5 sm:left-15 px-3 absolute -top-5">
-            <h1 className="text-2xl md:text-3xl font-bold">
-              About HOA Nightmares
-            </h1>
-            <h2 className="text-2xl md:text-3xl font-bold italic ">
-              Love My Home. Hate My HOA.
-            </h2>
-          </div>
-          <div
-            className="px-8 sm:px-18 my-15 sm:my-20 text-lg space-y-4 [&_a]:font-bold [&_a]:text-green-800 [&_h2]:text-2xl [&_h2]:font-bold [&_li]:ml-6 [&_ol]:list-decimal [&_p]:my-2 [&_ul]:list-disc"
-            dangerouslySetInnerHTML={{ __html: cmsHtml }}
-          />
-        </div>
-      </div>
+      <AboutPageFrame>
+        <div
+          className={aboutContentClass}
+          dangerouslySetInnerHTML={{ __html: cmsHtml }}
+        />
+      </AboutPageFrame>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-3">
-      <div className="border border-t-10 border-black h-full mx-5 my-10 relative sm:mx-20  xl:mx-40">
-        <div className="bg-white left-5 sm:left-15 px-3 absolute -top-5">
-          <h1 className="text-2xl md:text-3xl font-bold">
-            About HOA Nightmares
-          </h1>
-          <h2 className="text-2xl md:text-3xl font-bold italic ">
-            Love My Home. Hate My HOA.
-          </h2>
-        </div>
-        <div className="px-8 sm:px-18 my-15 sm:my-20 text-lg ">
+    <AboutPageFrame>
+      <div className={aboutContentClass}>
           <div className="space-y-2">
             <p>
               HOA Nightmares was created after I personally experienced neglect
@@ -170,9 +176,8 @@ const AboutUs = () => {
             </p>
             <p>HOA Nightmares provides that place.</p>
           </div>
-        </div>
       </div>
-    </div>
+    </AboutPageFrame>
   );
 };
 

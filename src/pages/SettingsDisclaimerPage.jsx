@@ -11,16 +11,14 @@ const DISCLAIMER_CONFIG = {
   legal: {
     title: "Legal Disclaimer",
     field: "disclaimer",
-    description:
-      "Important limitations, disclosures, and responsibilities for website content and use.",
+    description: " ",
     fallback:
       "The content on this site is for informational purposes only. HOA rules and policies vary by community and may change without notice.",
   },
   attorney: {
     title: "Attorney Disclaimer",
     field: "attorneyDisclaimer",
-    description:
-      "Information about attorney listings, legal services, and the absence of an attorney-client relationship.",
+    description: " ",
     fallback:
       "HOA Nightmares is not a law firm and does not provide legal advice. Attorney listings are provided for informational purposes only.",
   },
@@ -40,7 +38,9 @@ const SettingsDisclaimerPage = ({ type = "legal" }) => {
       setError(false);
 
       try {
-        const nextSettings = await getSiteSettings({ signal: controller.signal });
+        const nextSettings = await getSiteSettings({
+          signal: controller.signal,
+        });
         setSettings(nextSettings);
       } catch (requestError) {
         if (requestError.name !== "AbortError") {
@@ -78,6 +78,7 @@ const SettingsDisclaimerPage = ({ type = "legal" }) => {
         title={config.title}
         description={config.description}
         maxWidthClass="max-w-[860px]"
+        titleSizeClass="text-[32px] sm:text-[40px]"
       />
       <section className="px-5 pb-10 pt-0 md:px-8">
         <article className="mx-auto max-w-[860px] py-0">

@@ -25,6 +25,7 @@ const Mission = () => {
       <DocumentPageHeader
         title="Our Mission Brief:"
         maxWidthClass="max-w-[860px]"
+        titleSizeClass="text-[32px] sm:text-[40px]"
       />
 
       <section className="px-5 pb-12 pt-3 md:px-8">
