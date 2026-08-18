@@ -184,6 +184,7 @@ const queueConfig = {
       "published",
       "unpublished",
       "archived",
+      "removed",
     ],
     title: (record) => record.story_summary || record.story_hoa_name,
     person: (record) => record.story_name,
@@ -4340,9 +4341,23 @@ const AdminDashboard = () => {
                                     }
                                     rows={4}
                                     placeholder="Required only when rejecting the request"
-                                    className="mt-2 w-full rounded border border-[#cfd3d7] bg-white px-3 py-2 font-normal"
+                                  className="mt-2 w-full rounded border border-[#cfd3d7] bg-white px-3 py-2 font-normal"
+                                />
+                              </label>
+                                <div
+                                  role="alert"
+                                  className="mt-4 flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
+                                >
+                                  <FiAlertTriangle
+                                    className="mt-0.5 shrink-0 text-lg"
+                                    aria-hidden="true"
                                   />
-                                </label>
+                                  <p>
+                                    <strong>Permanent removal:</strong> Once
+                                    this story is removed, it cannot be restored
+                                    or recovered.
+                                  </p>
+                                </div>
                                 <div className="mt-4 grid gap-3 sm:grid-cols-2">
                                   <button
                                     type="button"
@@ -5558,26 +5573,37 @@ const AdminDashboard = () => {
                             <label className="mt-5 block text-sm font-semibold">
                               Workflow Status
                             </label>
-                            <select
-                              value={
-                                selectedRecord?.status ||
-                                selectedRecord?.publish_status ||
-                                "new"
-                              }
-                              onChange={(event) =>
-                                updateSelectedField(
-                                  "status",
-                                  event.target.value,
-                                )
-                              }
-                              className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2"
-                            >
-                              {selectedConfig.statuses.map((status) => (
-                                <option key={status} value={status}>
-                                  {formatStatus(status)}
-                                </option>
-                              ))}
-                            </select>
+                            {selectedRecord.queue === "stories" &&
+                            selectedRecord.status === "removed" ? (
+                              <div className="mt-2 flex w-full items-center rounded border border-red-300 bg-red-50 px-4 py-3">
+                                <span className="rounded-full bg-red-600 px-4 py-1.5 text-sm font-bold text-white">
+                                  Removed
+                                </span>
+                              </div>
+                            ) : (
+                              <select
+                                value={
+                                  selectedRecord?.status ||
+                                  selectedRecord?.publish_status ||
+                                  "new"
+                                }
+                                onChange={(event) =>
+                                  updateSelectedField(
+                                    "status",
+                                    event.target.value,
+                                  )
+                                }
+                                className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2"
+                              >
+                                {selectedConfig.statuses
+                                  .filter((status) => status !== "removed")
+                                  .map((status) => (
+                                    <option key={status} value={status}>
+                                      {formatStatus(status)}
+                                    </option>
+                                  ))}
+                              </select>
+                            )}
                           </>
                         )}
 
