@@ -148,14 +148,14 @@ const RemovalRequest = () => {
             </div>
 
             <label className="block font-bold text-[#163c2b]">
-              Removal Reason
+              Correction or removal Reason
               <textarea
                 name="reason"
                 value={form.reason}
                 onChange={(event) => updateField("reason", event.target.value)}
                 required
                 rows={7}
-                placeholder="Explain why you are requesting removal of this story."
+                placeholder="Enter your correction or removal reason."
                 className={`${inputClass} resize-y`}
               />
             </label>
