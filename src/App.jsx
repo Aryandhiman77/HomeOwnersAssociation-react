@@ -34,6 +34,7 @@ import Blog from "./pages/Blog";
 import BlogDetail from "./pages/BlogDetail";
 import NotFound from "./pages/NotFound";
 import Mission from "./pages/Mission";
+import RemovalRequest from "./pages/RemovalRequest";
 
 const AdminDashboard = lazy(() => import("./pages/Admin/AdminDashboard"));
 
@@ -82,6 +83,10 @@ const App = () => {
           <Route path="/about" element={<AboutUs />} />
           <Route path="/about-us" element={<AboutUs />} />
           <Route path="/mission" element={<Mission />} />
+          <Route
+            path="/correction-or-removal-request"
+            element={<RemovalRequest />}
+          />
           <Route path="/privacy-policy" element={<PrivacyPolicy />} />
           <Route
             path="/terms-of-use"

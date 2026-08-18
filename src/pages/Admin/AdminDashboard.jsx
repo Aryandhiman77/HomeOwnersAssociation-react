@@ -80,9 +80,12 @@ import {
   removeLocalQueueRecord,
   upsertLocalQueueRecord,
 } from "../../lib/adminLocalQueues";
+import { US_STATE_OPTIONS, getCitiesForState } from "../../lib/usLocationData";
 
 const queueEndpoints = {
   stories: "/api/admin/stories?page=1&limit=50",
+  removalRequests:
+    "/api/admin/story/removal-requests?page=1&limit=50",
   contact: [
     "/api/admin/contacts?page=1&limit=50",
     "/api/admin/contact/listing?page=1&limit=50",
@@ -188,6 +191,18 @@ const queueConfig = {
     body: (record) => record.story_body,
     meta: (record) =>
       [record.story_city, record.story_state].filter(Boolean).join(", "),
+  },
+  removalRequests: {
+    label: "Story Removal Requests",
+    sidebarLabel: "Removal Requests",
+    icon: <FiTrash2 />,
+    accent: "bg-[#c8102e]",
+    statuses: ["new", "rejected", "completed"],
+    title: (record) => record.caseId || "Story removal request",
+    person: (record) => record.name,
+    email: (record) => record.email,
+    body: (record) => record.reason,
+    meta: (record) => record.reason || "No removal reason provided",
   },
   contact: {
     label: "Contact Queue",
@@ -425,12 +440,19 @@ const queueConfig = {
 const queueKeys = Object.keys(queueConfig);
 const cmsSidebarQueues = ["homeCms", "aboutCms", "advocateCms", "contactCms"];
 const sidebarQueuesWithoutBadges = ["settings", "privacy", "terms"];
-const sidebarQueueKeys = ["stories", "contact", "advocate", "attorneys"];
+const sidebarQueueKeys = [
+  "stories",
+  "removalRequests",
+  "contact",
+  "advocate",
+  "attorneys",
+];
 const sidebarManagementKeys = ["faqs", "blogs", "pages"];
 const sidebarSystemKeys = ["notifications", "resources", "settings"];
 const sidebarLegalKeys = ["privacy", "terms"];
 const paginatedQueueKeys = [
   "stories",
+  "removalRequests",
   "contact",
   "advocate",
   "moderation",
@@ -443,6 +465,7 @@ const paginatedQueueKeys = [
 const pageSizeOptions = [10, 25, 50];
 const queuesWithLastUpdated = new Set([
   "stories",
+  "removalRequests",
   "contact",
   "advocate",
   "attorneys",
@@ -503,6 +526,7 @@ function getRecordKey(record) {
     record?.id ||
     record?._id ||
     record?.singletonKey ||
+    record?.caseId ||
     record?.slug ||
     record?.title ||
     ""
@@ -590,6 +614,19 @@ function buildPagesListingEndpoint({
   return `/api/admin/pages?${params.toString()}`;
 }
 
+function buildRemovalRequestsEndpoint({
+  page = 1,
+  limit = 10,
+  search = "",
+} = {}) {
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  if (search.trim()) params.set("search", search.trim());
+  return `/api/admin/story/removal-requests?${params.toString()}`;
+}
+
 function getPagesPagination(response, fallback = {}) {
   const rows = getResponseRows(response);
   const source =
@@ -619,6 +656,7 @@ function getPagesPagination(response, fallback = {}) {
   );
   const total = Number(
     source.total ??
+      source.totalResults ??
       source.totalItems ??
       source.totalRecords ??
       source.totalDocs ??
@@ -744,6 +782,14 @@ async function fetchPagesPage(options) {
   };
 }
 
+async function fetchRemovalRequestsPage(options) {
+  const response = await getJson(buildRemovalRequestsEndpoint(options));
+  return {
+    records: normalizeQueueRows("removalRequests", response),
+    pagination: getPagesPagination(response, options),
+  };
+}
+
 function getCountValue(counts, keys) {
   const source = counts?.data || counts || {};
   for (const key of keys) {
@@ -794,6 +840,10 @@ function getNotificationTargetQueue(relatedModule) {
   const moduleQueueMap = {
     story: "stories",
     stories: "stories",
+    "story-removal-request": "removalRequests",
+    "story-removal-requests": "removalRequests",
+    "removal-request": "removalRequests",
+    "removal-requests": "removalRequests",
     contact: "contact",
     advocate: "advocate",
     "advocate-request": "advocate",
@@ -809,6 +859,24 @@ function getNotificationTargetQueue(relatedModule) {
   };
 
   return moduleQueueMap[moduleKey] || "";
+}
+
+function getNotificationCaseId(notification) {
+  const candidates = [
+    notification?.caseId,
+    notification?.relatedCaseId,
+    notification?.relatedId,
+    notification?.description,
+    notification?.title,
+    notification?.actionUrl,
+  ];
+
+  for (const candidate of candidates) {
+    const match = String(candidate || "").match(/STORY-[A-Z0-9]{15}/i);
+    if (match) return match[0].toUpperCase();
+  }
+
+  return "";
 }
 
 function recordText(queue, record) {
@@ -838,6 +906,9 @@ function recordText(queue, record) {
     record.meta_description,
     record.assigned_reviewer,
     record.internal_notes,
+    record.caseId,
+    record.reason,
+    record.rejectionReason,
   ]
     .filter(Boolean)
     .join(" ")
@@ -1311,7 +1382,9 @@ const AdminDashboard = () => {
         const pageResult =
           queue === "pages"
             ? await fetchPagesPage(listingOptions)
-            : null;
+            : queue === "removalRequests"
+              ? await fetchRemovalRequestsPage(listingOptions)
+              : null;
         const records = pageResult
           ? pageResult.records
           : await fetchQueueRows(queue);
@@ -1431,7 +1504,7 @@ const AdminDashboard = () => {
         setSelectedRecord(null);
         setMessage("");
         setError("");
-        if (routeQueue !== "pages") {
+        if (!["pages", "removalRequests"].includes(routeQueue)) {
           loadQueue(routeQueue, {
             selectFirst: directEditQueueKeys.includes(routeQueue),
           });
@@ -1456,16 +1529,26 @@ const AdminDashboard = () => {
   }, [loadDashboardCounts, loadQueue, location.pathname]);
 
   useEffect(() => {
-    if (isDashboardView || activeQueue !== "pages") return undefined;
+    if (
+      isDashboardView ||
+      !["pages", "removalRequests"].includes(activeQueue)
+    ) {
+      return undefined;
+    }
 
     const timeoutId = window.setTimeout(
       () => {
-        loadQueue("pages", {
+        loadQueue(activeQueue, {
           page: currentPage,
           limit: pageSize,
           sortOrder: pagesSortOrder,
           status: statusFilter,
-          search: query,
+          search:
+            activeQueue === "removalRequests" && !query.trim()
+              ? statusFilter === "All"
+                ? ""
+                : statusFilter
+              : query,
         });
       },
       query.trim() ? 300 : 0,
@@ -1636,26 +1719,29 @@ const AdminDashboard = () => {
 
   const isActiveQueuePaginated = paginatedQueueKeys.includes(activeQueue);
   const isPagesQueue = activeQueue === "pages";
+  const isServerPaginatedQueue = ["pages", "removalRequests"].includes(
+    activeQueue,
+  );
   const isDirectEditQueue = directEditQueueKeys.includes(activeQueue);
-  const totalPages = isPagesQueue
+  const totalPages = isServerPaginatedQueue
     ? pagesPagination.totalPages
     : isActiveQueuePaginated
       ? Math.max(1, Math.ceil(filteredRecords.length / pageSize))
       : 1;
-  const safeCurrentPage = isPagesQueue
+  const safeCurrentPage = isServerPaginatedQueue
     ? pagesPagination.page
     : Math.min(currentPage, totalPages);
   const paginationStart = isActiveQueuePaginated
     ? (safeCurrentPage - 1) * pageSize
     : 0;
-  const visibleRecords = isPagesQueue
+  const visibleRecords = isServerPaginatedQueue
     ? filteredRecords
     : isActiveQueuePaginated
       ? filteredRecords.slice(paginationStart, paginationStart + pageSize)
       : filteredRecords;
   const visibleStart =
     visibleRecords.length === 0 ? 0 : paginationStart + 1;
-  const visibleEnd = isPagesQueue
+  const visibleEnd = isServerPaginatedQueue
     ? Math.min(
         paginationStart + visibleRecords.length,
         pagesPagination.total,
@@ -1703,6 +1789,70 @@ const AdminDashboard = () => {
       );
       const targetId = notificationRecord.relatedId;
 
+      if (targetQueue === "removalRequests") {
+        const caseId = getNotificationCaseId(notificationRecord);
+        setNotificationDropdownOpen(false);
+
+        if (!caseId) {
+          toast.error(
+            "The removal-request notification does not contain a valid Case ID.",
+          );
+          setSelectedRecord({ ...notificationRecord, queue });
+          return;
+        }
+
+        setRecordDetailsLoading(true);
+        setSelectedRecord(null);
+
+        try {
+          const result = await fetchRemovalRequestsPage({
+            page: 1,
+            limit: 10,
+            search: caseId,
+          });
+          if (detailsRequestId !== recordDetailsRequestIdRef.current) return;
+
+          const removalRequest = result.records.find(
+            (request) =>
+              String(request.caseId || "").toUpperCase() === caseId,
+          );
+
+          if (!removalRequest) {
+            throw new Error(`No removal request was found for ${caseId}.`);
+          }
+
+          setRecordsByQueue((current) => {
+            const currentRequests = current.removalRequests || [];
+            const hasRequest = currentRequests.some(
+              (request) =>
+                String(request.caseId || "").toUpperCase() === caseId,
+            );
+
+            return {
+              ...current,
+              removalRequests: hasRequest
+                ? currentRequests.map((request) =>
+                    String(request.caseId || "").toUpperCase() === caseId
+                      ? removalRequest
+                      : request,
+                  )
+                : [removalRequest, ...currentRequests],
+            };
+          });
+
+          setRecordDetailsLoading(false);
+          await openRecord("removalRequests", removalRequest);
+        } catch (requestError) {
+          if (detailsRequestId !== recordDetailsRequestIdRef.current) return;
+          setRecordDetailsLoading(false);
+          toast.error(
+            requestError.message ||
+              `Unable to load the removal request for ${caseId}.`,
+          );
+        }
+        return;
+      }
+
       if (targetQueue && targetId) {
         queueLoadRequestIdRef.current += 1;
         setNotificationDropdownOpen(false);
@@ -1719,6 +1869,8 @@ const AdminDashboard = () => {
     const detailsEndpoint =
       queue === "stories"
         ? `/api/admin/story/details/${record.id}`
+        : queue === "removalRequests"
+          ? `/api/admin/story/${encodeURIComponent(record.caseId)}`
         : queue === "attorneys"
           ? `/api/admin/attorney/${record.id}`
           : queue === "contact"
@@ -1774,8 +1926,13 @@ const AdminDashboard = () => {
             ? normalizeCmsRecord(response, queue)
             : queue === "privacy" || queue === "terms"
               ? normalizeLegalRecord(response, queue)
-              : queue === "pages"
+            : queue === "pages"
                 ? normalizePageRecord(response, record)
+              : queue === "removalRequests"
+                ? normalizeRecord({
+                    ...record,
+                    linkedStory: normalizeApiRecord(response, null),
+                  })
               : normalizeSingleRecord(response, record);
       const selectedDetails =
         queue === "blogs"
@@ -1827,6 +1984,119 @@ const AdminDashboard = () => {
         ? updater(current)
         : { ...current, ...updater };
     });
+  };
+
+  const reviewRemovalRequestStory = async () => {
+    const caseId = String(selectedRecord?.caseId || "").trim().toUpperCase();
+    if (!caseId || selectedRecord?.queue !== "removalRequests") return;
+
+    setSaving(true);
+    setMessage("");
+    setError("");
+
+    try {
+      const response = await getJson(
+        `/api/admin/story/${encodeURIComponent(caseId)}`,
+      );
+      const detailedRecord = normalizeSingleRecord(response, null);
+      if (!detailedRecord?.id) {
+        throw new Error(
+          `The story for ${caseId} was loaded without its update identifier.`,
+        );
+      }
+      const storyForReview = {
+        ...detailedRecord,
+        storyIssuesInput: getStoryIssuesInput(detailedRecord),
+      };
+      setSelectedRecord({ ...storyForReview, queue: "stories" });
+    } catch (requestError) {
+      toast.error(
+        requestError.message || `Unable to load the story for ${caseId}.`,
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const applyRemovalRequestUpdate = (response, fallbackStatus) => {
+    const responseRecord = normalizeApiRecord(response, null);
+    const updated = normalizeRecord({
+      ...selectedRecord,
+      ...(responseRecord && typeof responseRecord === "object"
+        ? responseRecord
+        : {}),
+      status: responseRecord?.status || fallbackStatus,
+      linkedStory: selectedRecord?.linkedStory,
+    });
+
+    setRecordsByQueue((current) => ({
+      ...current,
+      removalRequests: (current.removalRequests || []).map((record) =>
+        record.caseId === updated.caseId ? updated : record,
+      ),
+    }));
+    setSelectedRecord({ ...updated, queue: "removalRequests" });
+  };
+
+  const completeStoryRemoval = async () => {
+    const caseId = selectedRecord?.caseId;
+    if (!caseId || selectedRecord?.queue !== "removalRequests") return;
+    if (
+      !window.confirm(
+        `Remove the published story ${caseId}? This action changes its status to removed.`,
+      )
+    ) {
+      return;
+    }
+
+    setSaving(true);
+    setMessage("");
+    setError("");
+    try {
+      const response = await patchJson(
+        `/api/admin/story/remove/${encodeURIComponent(caseId)}`,
+      );
+      applyRemovalRequestUpdate(response, "completed");
+      toast.success(`Story ${caseId} was removed successfully.`);
+    } catch (requestError) {
+      toast.error(
+        requestError.message || `Unable to remove story ${caseId}.`,
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const rejectStoryRemoval = async () => {
+    const caseId = selectedRecord?.caseId;
+    const rejectionReason = String(
+      selectedRecord?.rejectionReason || "",
+    ).trim();
+    if (!caseId || selectedRecord?.queue !== "removalRequests") return;
+    if (!rejectionReason) {
+      toast.error("Enter a rejection reason before rejecting this request.");
+      return;
+    }
+    if (!window.confirm(`Reject the removal request for ${caseId}?`)) return;
+
+    setSaving(true);
+    setMessage("");
+    setError("");
+    try {
+      const response = await patchJson(
+        `/api/admin/story/reject-removal/${encodeURIComponent(caseId)}`,
+        { rejectionReason },
+      );
+      applyRemovalRequestUpdate(response, "rejected");
+      toast.success(`Removal request for ${caseId} was rejected.`);
+    } catch (requestError) {
+      toast.error(
+        requestError.message ||
+          `Unable to reject the removal request for ${caseId}.`,
+      );
+    } finally {
+      setSaving(false);
+    }
   };
 
   const loadGenericCmsById = async (cmsId) => {
@@ -3019,6 +3289,14 @@ const AdminDashboard = () => {
                       status: statusFilter,
                       search: query,
                     });
+                  } else if (activeQueue === "removalRequests") {
+                    loadQueue("removalRequests", {
+                      page: currentPage,
+                      limit: pageSize,
+                      search:
+                        query.trim() ||
+                        (statusFilter === "All" ? "" : statusFilter),
+                    });
                   } else {
                     loadQueue(activeQueue, {
                       selectFirst: directEditQueueKeys.includes(activeQueue),
@@ -3030,6 +3308,16 @@ const AdminDashboard = () => {
                 <FiRefreshCw />
                 Refresh
               </button>
+              {!isDashboardView && activeQueue === "stories" && (
+                <button
+                  type="button"
+                  onClick={() => switchToQueue("removalRequests")}
+                  className="flex w-fit items-center gap-2 rounded border border-[#c8102e] bg-white px-4 py-2 font-semibold text-[#c8102e] shadow-sm hover:bg-red-50"
+                >
+                  <FiTrash2 />
+                  Story Removal Requests
+                </button>
+              )}
               {!isDashboardView && activeQueue === "faqs" && (
                 <button
                   type="button"
@@ -3300,8 +3588,8 @@ const AdminDashboard = () => {
                       <p className="text-sm text-[#6a757d]">
                         {isDirectEditQueue
                           ? "Opening the editor directly for this section."
-                          : isPagesQueue
-                            ? `Showing ${visibleStart}-${visibleEnd} of ${pagesPagination.total} pages`
+                          : isServerPaginatedQueue
+                            ? `Showing ${visibleStart}-${visibleEnd} of ${pagesPagination.total} records`
                           : isActiveQueuePaginated
                             ? `Showing ${visibleStart}-${visibleEnd} of ${filteredRecords.length} filtered records (${activeRecords.length} total)`
                             : `${filteredRecords.length} visible of ${activeRecords.length} records`}
@@ -3566,6 +3854,8 @@ const AdminDashboard = () => {
                                 >
                                   {activeQueue === "notifications"
                                     ? "View"
+                                    : activeQueue === "removalRequests"
+                                      ? "Review"
                                     : "Edit"}
                                 </button>
                               </td>
@@ -3734,6 +4024,20 @@ const AdminDashboard = () => {
 
                         {selectedRecord.queue === "stories" && (
                           <div className="mt-5 space-y-4">
+                            <label className="block rounded-lg border border-[#c8d8ce] bg-[#f3f8f5] p-4 text-sm font-semibold text-[#164c32]">
+                              Case ID
+                              <input
+                                value={selectedRecord.caseId || "Not assigned"}
+                                readOnly
+                                aria-label="Story Case ID"
+                                className="mt-2 w-full rounded border border-[#b8cfc0] bg-white px-3 py-2 font-mono font-semibold tracking-wide text-[#2f4251] outline-none"
+                              />
+                              <span className="mt-2 block text-xs font-normal text-[#60717c]">
+                                This identifier is generated for the story and
+                                cannot be changed.
+                              </span>
+                            </label>
+
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                               <label className="block text-sm font-semibold">
                                 Story Name
@@ -3765,8 +4069,37 @@ const AdminDashboard = () => {
 
                             <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
                               <label className="block text-sm font-semibold">
+                                State
+                                <select
+                                  value={selectedRecord.story_state || ""}
+                                  onChange={(event) =>
+                                    updateSelectedRecord((record) => ({
+                                      ...record,
+                                      story_state: event.target.value,
+                                      story_city: "",
+                                    }))
+                                  }
+                                  className="mt-2 w-full rounded border border-[#cfd3d7] bg-white px-3 py-2 font-normal"
+                                >
+                                  <option value="">Select State</option>
+                                  {selectedRecord.story_state &&
+                                    !US_STATE_OPTIONS.includes(
+                                      selectedRecord.story_state,
+                                    ) && (
+                                      <option value={selectedRecord.story_state}>
+                                        {selectedRecord.story_state}
+                                      </option>
+                                    )}
+                                  {US_STATE_OPTIONS.map((stateName) => (
+                                    <option key={stateName} value={stateName}>
+                                      {stateName}
+                                    </option>
+                                  ))}
+                                </select>
+                              </label>
+                              <label className="block text-sm font-semibold">
                                 City
-                                <input
+                                <select
                                   value={selectedRecord.story_city || ""}
                                   onChange={(event) =>
                                     updateSelectedField(
@@ -3774,21 +4107,34 @@ const AdminDashboard = () => {
                                       event.target.value,
                                     )
                                   }
-                                  className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2 font-normal"
-                                />
-                              </label>
-                              <label className="block text-sm font-semibold">
-                                State
-                                <input
-                                  value={selectedRecord.story_state || ""}
-                                  onChange={(event) =>
-                                    updateSelectedField(
-                                      "story_state",
-                                      event.target.value,
-                                    )
-                                  }
-                                  className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2 font-normal"
-                                />
+                                  disabled={!selectedRecord.story_state}
+                                  className={`mt-2 w-full rounded border border-[#cfd3d7] bg-white px-3 py-2 font-normal ${
+                                    !selectedRecord.story_state
+                                      ? "cursor-not-allowed opacity-60"
+                                      : ""
+                                  }`}
+                                >
+                                  <option value="">
+                                    {selectedRecord.story_state
+                                      ? "Select City"
+                                      : "Select State First"}
+                                  </option>
+                                  {selectedRecord.story_city &&
+                                    !getCitiesForState(
+                                      selectedRecord.story_state,
+                                    ).includes(selectedRecord.story_city) && (
+                                      <option value={selectedRecord.story_city}>
+                                        {selectedRecord.story_city}
+                                      </option>
+                                    )}
+                                  {getCitiesForState(
+                                    selectedRecord.story_state,
+                                  ).map((cityName) => (
+                                    <option key={cityName} value={cityName}>
+                                      {cityName}
+                                    </option>
+                                  ))}
+                                </select>
                               </label>
                             </div>
 
@@ -3924,6 +4270,110 @@ const AdminDashboard = () => {
                                   className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2 font-normal"
                                 />
                               </label>
+                            )}
+                          </div>
+                        )}
+
+                        {selectedRecord.queue === "removalRequests" && (
+                          <div className="mt-5 space-y-5">
+                            <div className="rounded-lg border border-[#e1e5e8] bg-[#f8fafb] p-4">
+                              <div className="grid gap-4 md:grid-cols-2">
+                                <label className="block text-sm font-semibold">
+                                  Case ID
+                                  <input
+                                    value={selectedRecord.caseId || ""}
+                                    readOnly
+                                    className="mt-2 w-full rounded border border-[#cfd3d7] bg-white px-3 py-2 font-mono font-normal"
+                                  />
+                                </label>
+                                <label className="block text-sm font-semibold">
+                                  Requester
+                                  <input
+                                    value={selectedRecord.name || ""}
+                                    readOnly
+                                    className="mt-2 w-full rounded border border-[#cfd3d7] bg-white px-3 py-2 font-normal"
+                                  />
+                                </label>
+                                <label className="block text-sm font-semibold md:col-span-2">
+                                  Email
+                                  <input
+                                    value={selectedRecord.email || ""}
+                                    readOnly
+                                    className="mt-2 w-full rounded border border-[#cfd3d7] bg-white px-3 py-2 font-normal"
+                                  />
+                                </label>
+                              </div>
+                              <label className="mt-4 block text-sm font-semibold">
+                                Removal Reason
+                                <textarea
+                                  value={selectedRecord.reason || ""}
+                                  readOnly
+                                  rows={5}
+                                  className="mt-2 w-full rounded border border-[#cfd3d7] bg-white px-3 py-2 font-normal"
+                                />
+                              </label>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={reviewRemovalRequestStory}
+                              disabled={isSaving || !selectedRecord.caseId}
+                              className="inline-flex items-center justify-center gap-2 rounded-lg bg-[#0a6b3b] px-5 py-3 font-bold text-white transition hover:bg-[#07552f] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              <FiEdit3 aria-hidden="true" />
+                              {isSaving ? "Loading Story..." : "Review Story"}
+                            </button>
+
+                            {selectedRecord.status === "new" ? (
+                              <div className="rounded-lg border border-[#ecd3d8] bg-[#fffafb] p-4">
+                                <label className="block text-sm font-semibold">
+                                  Rejection Reason
+                                  <textarea
+                                    value={
+                                      selectedRecord.rejectionReason || ""
+                                    }
+                                    onChange={(event) =>
+                                      updateSelectedField(
+                                        "rejectionReason",
+                                        event.target.value,
+                                      )
+                                    }
+                                    rows={4}
+                                    placeholder="Required only when rejecting the request"
+                                    className="mt-2 w-full rounded border border-[#cfd3d7] bg-white px-3 py-2 font-normal"
+                                  />
+                                </label>
+                                <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                                  <button
+                                    type="button"
+                                    onClick={rejectStoryRemoval}
+                                    disabled={isSaving}
+                                    className="rounded-lg border border-red-300 bg-white px-4 py-3 font-bold text-red-700 hover:bg-red-50 disabled:opacity-60"
+                                  >
+                                    Reject Request
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={completeStoryRemoval}
+                                    disabled={isSaving}
+                                    className="rounded-lg bg-[#c8102e] px-4 py-3 font-bold text-white hover:bg-[#a30d25] disabled:opacity-60"
+                                  >
+                                    Remove Story
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="rounded-lg border border-[#d7dadd] bg-[#f7f8f9] p-4 text-sm">
+                                <p className="font-bold">
+                                  Request {formatStatus(selectedRecord.status)}
+                                </p>
+                                {selectedRecord.rejectionReason && (
+                                  <p className="mt-2 leading-6 text-[#5f6d75]">
+                                    Rejection reason:{" "}
+                                    {selectedRecord.rejectionReason}
+                                  </p>
+                                )}
+                              </div>
                             )}
                           </div>
                         )}
@@ -5102,7 +5552,8 @@ const AdminDashboard = () => {
                           </div>
                         )}
 
-                        {!nonWorkflowQueues.includes(selectedRecord.queue) && (
+                        {!nonWorkflowQueues.includes(selectedRecord.queue) &&
+                          selectedRecord.queue !== "removalRequests" && (
                           <>
                             <label className="mt-5 block text-sm font-semibold">
                               Workflow Status
@@ -5257,7 +5708,10 @@ const AdminDashboard = () => {
                             </button>
                           )}
 
-                        {selectedRecord.queue !== "notifications" && (
+                        {![
+                          "notifications",
+                          "removalRequests",
+                        ].includes(selectedRecord.queue) && (
                           <button
                             onClick={saveSelectedRecord}
                             disabled={
