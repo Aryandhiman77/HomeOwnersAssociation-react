@@ -160,10 +160,6 @@ const ATTORNEY_PRACTICE_AREAS = [
 ];
 
 const frontendQueueNotes = {
-  contact:
-    "Showing browser-local contact submissions that are not in the backend yet.",
-  advocate:
-    "Backend non-legal advocate listing API is not mounted yet. Showing same-browser frontend submissions until backend queue routes are added.",
   moderation:
     "Moderation backend API is pending. Use this frontend queue to track manual moderation items for now.",
   notifications:
