@@ -20,6 +20,7 @@ import {
   FiGrid,
   FiHelpCircle,
   FiLogOut,
+  FiMail,
   FiMenu,
   FiMessageSquare,
   FiPlus,
@@ -46,6 +47,7 @@ import {
   putJson,
 } from "../../lib/api";
 import RichTextEditor from "../../components/RichTextEditor";
+import NewsletterSubscribersPanel from "../../components/Admin/NewsletterSubscribersPanel";
 import {
   AboutCmsEditor,
   AdminSettingsEditor,
@@ -408,6 +410,18 @@ const queueConfig = {
     body: (record) => record.summary || stripHtml(record.body),
     meta: (record) => record.slug || record.category || "No slug",
   },
+  newsletters: {
+    label: "Newsletter Subscribers",
+    sidebarLabel: "Newsletter",
+    icon: <FiMail />,
+    accent: "bg-[#0a6b3b]",
+    statuses: ["subscribed", "unsubscribed"],
+    title: (record) => record.firstName || record.email,
+    person: (record) => record.firstName || "Subscriber",
+    email: (record) => record.email,
+    body: () => "",
+    meta: (record) => record.status || "subscribed",
+  },
   privacy: {
     label: "Privacy Policy",
     sidebarLabel: "Privacy",
@@ -447,6 +461,7 @@ const sidebarQueueKeys = [
 const sidebarManagementKeys = ["faqs", "blogs", "pages"];
 const sidebarSystemKeys = ["notifications", "resources", "settings"];
 const sidebarLegalKeys = ["privacy", "terms"];
+const sidebarNewsletterKeys = ["newsletters"];
 const paginatedQueueKeys = [
   "stories",
   "removalRequests",
@@ -483,7 +498,7 @@ const directEditQueueKeys = [
 ];
 const dashboardQueueKeys = ["stories", "contact", "advocate", "attorneys"];
 const dashboardManagerKeys = ["faqs", "blogs", "pages"];
-const dashboardActivityKeys = ["notifications", "resources"];
+const dashboardActivityKeys = ["notifications", "resources", "newsletters"];
 const dashboardQuickActionKeys = [
   "settings",
   "homeCms",
@@ -1339,12 +1354,42 @@ const AdminDashboard = () => {
   const queueLoadRequestIdRef = useRef(0);
   const recordDetailsRequestIdRef = useRef(0);
 
+  const updateNewsletterCount = useCallback((total) => {
+    setDashboardCounts((current) => ({
+      ...current,
+      newsletters: {
+        total,
+        newCount: 0,
+        isPending: false,
+      },
+    }));
+  }, []);
+
   const loadDashboardCounts = useCallback(async () => {
     setError("");
 
     try {
       const response = await getJson("/api/admin/records-count");
-      setDashboardCounts(normalizeDashboardCounts(response));
+      const counts = normalizeDashboardCounts(response);
+
+      try {
+        const newsletterResponse = await getJson(
+          "/api/admin/newsletter/subscribers?page=1&limit=1",
+        );
+        counts.newsletters = {
+          total: Number(
+            newsletterResponse?.meta?.totalResults ??
+              newsletterResponse?.data?.length ??
+              0,
+          ),
+          newCount: 0,
+          isPending: false,
+        };
+      } catch {
+        counts.newsletters = { total: 0, newCount: 0, isPending: false };
+      }
+
+      setDashboardCounts(counts);
     } catch (requestError) {
       setError(requestError.message);
     }
@@ -1501,7 +1546,7 @@ const AdminDashboard = () => {
         setSelectedRecord(null);
         setMessage("");
         setError("");
-        if (!["pages", "removalRequests"].includes(routeQueue)) {
+        if (!["pages", "removalRequests", "newsletters"].includes(routeQueue)) {
           loadQueue(routeQueue, {
             selectFirst: directEditQueueKeys.includes(routeQueue),
           });
@@ -3029,6 +3074,8 @@ const AdminDashboard = () => {
                 </div>
               )}
             </section>
+
+            {renderSidebarSection("Newsletter", sidebarNewsletterKeys)}
           </nav>
 
           <div className="mt-auto px-7 pb-7">
@@ -3566,8 +3613,19 @@ const AdminDashboard = () => {
               </div>
             )}
 
+            {!isDashboardView && activeQueue === "newsletters" && (
+              <NewsletterSubscribersPanel
+                onCountChange={updateNewsletterCount}
+              />
+            )}
+
             <div
-              className={isDashboardView && !selectedRecord ? "hidden" : "mt-8"}
+              className={
+                (isDashboardView && !selectedRecord) ||
+                activeQueue === "newsletters"
+                  ? "hidden"
+                  : "mt-8"
+              }
             >
               <section
                 className={

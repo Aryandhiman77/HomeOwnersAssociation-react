@@ -35,6 +35,8 @@ import BlogDetail from "./pages/BlogDetail";
 import NotFound from "./pages/NotFound";
 import Mission from "./pages/Mission";
 import RemovalRequest from "./pages/RemovalRequest";
+import NewsletterUnsubscribe from "./pages/NewsletterUnsubscribe";
+import NewsletterPopup from "./components/NewsletterPopup";
 
 const AdminDashboard = lazy(() => import("./pages/Admin/AdminDashboard"));
 
@@ -101,6 +103,26 @@ const App = () => {
             element={<SubmitStoryProtectedRoute />}
           />
           <Route path="/thank-you" element={<ThankYou />} />
+          <Route
+            path="/newsletter"
+            element={<Navigate to="/newsletters/subscribe" replace />}
+          />
+          <Route
+            path="/newsletter/subscribe"
+            element={<Navigate to="/newsletters/subscribe" replace />}
+          />
+          <Route
+            path="/newsletters/subscribe"
+            element={<NewsletterPopup standalone />}
+          />
+          <Route
+            path="/newsletter/unsubscribe/:token"
+            element={<NewsletterUnsubscribe />}
+          />
+          <Route
+            path="/newsletters/unsubscribe/:token"
+            element={<NewsletterUnsubscribe />}
+          />
           <Route path="/hoa-horror-stories" element={<HoaHorrorStories />} />
           <Route path="/horror-stories" element={<HoaHorrorStories />} />
           <Route

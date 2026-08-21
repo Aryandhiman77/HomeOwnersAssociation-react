@@ -52,7 +52,7 @@ const NAV_ITEMS = [
     //   { label: "Submit Tips",      href: "/contact?type=tips" },
     // ],
   },
-  { label: "Newsletter", href: "/newsletter" },
+  { label: "Newsletter", href: "/newsletters/subscribe" },
   { label: "Blog", href: "/blogs" },
   {
     label: "FAQs",
@@ -133,7 +133,7 @@ const Header = ({ settings }) => {
               {/* social — hidden on small screens */}
               <div className="hidden items-center gap-2 xl:flex">
                 <a
-                  href={getSocialHref("newsletters", "/newsletter")}
+                  href={getSocialHref("newsletters", "/newsletters/subscribe")}
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Newsletter"
@@ -342,7 +342,7 @@ const Header = ({ settings }) => {
           {/* social icons inside mobile menu */}
           <div className="flex items-center gap-4 px-4 py-4 border-t border-gray-100">
             <a
-              href={getSocialHref("newsletters", "/newsletter")}
+              href={getSocialHref("newsletters", "/newsletters/subscribe")}
               target="_blank"
               rel="noreferrer"
               aria-label="Newsletter"

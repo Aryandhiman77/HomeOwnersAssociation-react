@@ -245,6 +245,46 @@ export function deleteJson(path, payload) {
   });
 }
 
+export async function getBlob(path, options = {}) {
+  const { headers, ...requestOptions } = options;
+  const response = await fetchWithFriendlyNetworkError(
+    buildApiUrl(path),
+    {
+      method: "GET",
+      headers: withAuthHeaders(path, {
+        Accept: "text/csv, application/octet-stream, */*",
+        ...(headers || {}),
+      }),
+      credentials: "include",
+      cache: "no-store",
+      ...requestOptions,
+    },
+    path,
+  );
+
+  if (!response.ok) {
+    const text = await response.text();
+    let data = {};
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch {
+      data = {};
+    }
+    const message =
+      data.message || data.error || "The requested file could not be downloaded.";
+
+    if (handleAdminAuthFailure(path, response.status, message)) {
+      throw new Error("Admin session expired. Please log in again.");
+    }
+
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
+  }
+
+  return response.blob();
+}
+
 export function buildAssetUrl(path) {
   if (!path) {
     return "";

@@ -98,7 +98,7 @@ const Footer = ({ settings }) => {
                 aria-label="Social media links"
               >
                 <a
-                  href={getSocialHref("newsletters", "/newsletter")}
+                  href={getSocialHref("newsletters", "/newsletters/subscribe")}
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Newsletter"
