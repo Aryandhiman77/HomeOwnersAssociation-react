@@ -28,7 +28,7 @@ function getSubscriberId(subscriber) {
   return subscriber?.id || subscriber?._id || "";
 }
 
-const NewsletterSubscribersPanel = ({ onCountChange }) => {
+const NewsletterSubscribersPanel = ({ onCountChange, refreshSignal = 0 }) => {
   const [subscribers, setSubscribers] = useState([]);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -96,6 +96,10 @@ const NewsletterSubscribersPanel = ({ onCountChange }) => {
       isCurrent = false;
     };
   }, [loadSubscribers]);
+
+  useEffect(() => {
+    if (refreshSignal > 0) loadSubscribers();
+  }, [loadSubscribers, refreshSignal]);
 
   const exportSubscribers = async () => {
     setExporting(true);
@@ -225,6 +229,7 @@ const NewsletterSubscribersPanel = ({ onCountChange }) => {
         <table className="w-full min-w-[850px] text-left">
           <thead className="border-b border-[#d7dadd] bg-[#f7f8f9] text-sm text-[#52616b]">
             <tr>
+              <th className="px-5 py-3">#</th>
               <th className="px-5 py-3">Subscriber</th>
               <th className="px-5 py-3">Email</th>
               <th className="px-5 py-3">Status</th>
@@ -255,7 +260,7 @@ const NewsletterSubscribersPanel = ({ onCountChange }) => {
               </tr>
             )}
             {!isLoading &&
-              subscribers.map((subscriber) => {
+              subscribers.map((subscriber, i) => {
                 const id = getSubscriberId(subscriber);
                 const isSubscribed = subscriber.status === "subscribed";
                 return (
@@ -263,6 +268,9 @@ const NewsletterSubscribersPanel = ({ onCountChange }) => {
                     key={id || subscriber.email}
                     className="border-b border-[#e7eaec] last:border-0"
                   >
+                    <td className="px-5 py-4 font-semibold text-[#2e4353]">
+                      {i + 1}
+                    </td>
                     <td className="px-5 py-4 font-semibold text-[#2e4353]">
                       {subscriber.firstName || "Not provided"}
                     </td>

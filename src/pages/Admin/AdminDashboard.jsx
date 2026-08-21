@@ -86,8 +86,7 @@ import { US_STATE_OPTIONS, getCitiesForState } from "../../lib/usLocationData";
 
 const queueEndpoints = {
   stories: "/api/admin/stories?page=1&limit=50",
-  removalRequests:
-    "/api/admin/story/removal-requests?page=1&limit=50",
+  removalRequests: "/api/admin/story/removal-requests?page=1&limit=50",
   contact: [
     "/api/admin/contacts?page=1&limit=50",
     "/api/admin/contact/listing?page=1&limit=50",
@@ -690,8 +689,7 @@ function getPagesPagination(response, fallback = {}) {
     page: Number.isFinite(page) && page > 0 ? page : 1,
     limit: Number.isFinite(limit) && limit > 0 ? limit : 10,
     total: Number.isFinite(total) && total >= 0 ? total : rows.length,
-    totalPages:
-      Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1,
+    totalPages: Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1,
   };
 }
 
@@ -1094,11 +1092,7 @@ function getAdvocateUploads(record) {
 function getAdvocateUploadUrl(upload) {
   return typeof upload === "string"
     ? upload
-    : upload?.fileUrl ||
-        upload?.url ||
-        upload?.file_url ||
-        upload?.path ||
-        "";
+    : upload?.fileUrl || upload?.url || upload?.file_url || upload?.path || "";
 }
 
 function getAdvocateUploadLabel(upload) {
@@ -1166,9 +1160,7 @@ function buildAdvocatePayload(record) {
     adv_issue_types: getAdvocateIssueTypes(record),
     ...(record.adv_best_time_to_call
       ? {
-          adv_best_time_to_call: String(
-            record.adv_best_time_to_call,
-          ).trim(),
+          adv_best_time_to_call: String(record.adv_best_time_to_call).trim(),
         }
       : {}),
     adv_estimated_damages: String(record.adv_estimated_damages || "").trim(),
@@ -1247,8 +1239,7 @@ function buildBlogFormData(record, requireImage) {
 }
 
 function buildPagePayload(record) {
-  const publishStatus =
-    record.status || record.publish_status || "draft";
+  const publishStatus = record.status || record.publish_status || "draft";
   if (!queueConfig.pages.statuses.includes(publishStatus)) {
     throw new Error(
       `Page status must be one of: ${queueConfig.pages.statuses.join(", ")}.`,
@@ -1337,6 +1328,7 @@ const AdminDashboard = () => {
     totalPages: 1,
   });
   const [isLoading, setLoading] = useState(true);
+  const [newsletterRefreshSignal, setNewsletterRefreshSignal] = useState(0);
   const [isRecordDetailsLoading, setRecordDetailsLoading] = useState(false);
   const [isSaving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
@@ -1430,28 +1422,28 @@ const AdminDashboard = () => {
         const records = pageResult
           ? pageResult.records
           : await fetchQueueRows(queue);
-      if (requestId !== queueLoadRequestIdRef.current) return;
+        if (requestId !== queueLoadRequestIdRef.current) return;
 
-      if (pageResult) {
-        setPagesPagination(pageResult.pagination);
-      }
+        if (pageResult) {
+          setPagesPagination(pageResult.pagination);
+        }
 
-      setRecordsByQueue((current) => ({
-        ...current,
-        [queue]: records,
-      }));
+        setRecordsByQueue((current) => ({
+          ...current,
+          [queue]: records,
+        }));
 
-      if (selectFirst) {
-        setSelectedRecord(records[0] ? { ...records[0], queue } : null);
-      } else {
-        setSelectedRecord((current) =>
-          current?.queue === queue
-            ? records.find(
-                (record) => getRecordKey(record) === getRecordKey(current),
-              ) || null
-            : null,
-        );
-      }
+        if (selectFirst) {
+          setSelectedRecord(records[0] ? { ...records[0], queue } : null);
+        } else {
+          setSelectedRecord((current) =>
+            current?.queue === queue
+              ? records.find(
+                  (record) => getRecordKey(record) === getRecordKey(current),
+                ) || null
+              : null,
+          );
+        }
       } catch (requestError) {
         if (requestId !== queueLoadRequestIdRef.current) return;
 
@@ -1781,17 +1773,10 @@ const AdminDashboard = () => {
     : isActiveQueuePaginated
       ? filteredRecords.slice(paginationStart, paginationStart + pageSize)
       : filteredRecords;
-  const visibleStart =
-    visibleRecords.length === 0 ? 0 : paginationStart + 1;
+  const visibleStart = visibleRecords.length === 0 ? 0 : paginationStart + 1;
   const visibleEnd = isServerPaginatedQueue
-    ? Math.min(
-        paginationStart + visibleRecords.length,
-        pagesPagination.total,
-      )
-    : Math.min(
-        paginationStart + visibleRecords.length,
-        filteredRecords.length,
-      );
+    ? Math.min(paginationStart + visibleRecords.length, pagesPagination.total)
+    : Math.min(paginationStart + visibleRecords.length, filteredRecords.length);
 
   const totals = useMemo(() => {
     return queueKeys.reduce((result, queue) => {
@@ -1855,8 +1840,7 @@ const AdminDashboard = () => {
           if (detailsRequestId !== recordDetailsRequestIdRef.current) return;
 
           const removalRequest = result.records.find(
-            (request) =>
-              String(request.caseId || "").toUpperCase() === caseId,
+            (request) => String(request.caseId || "").toUpperCase() === caseId,
           );
 
           if (!removalRequest) {
@@ -1913,41 +1897,41 @@ const AdminDashboard = () => {
         ? `/api/admin/story/details/${record.id}`
         : queue === "removalRequests"
           ? `/api/admin/story/${encodeURIComponent(record.caseId)}`
-        : queue === "attorneys"
-          ? `/api/admin/attorney/${record.id}`
-          : queue === "contact"
-            ? `/api/admin/contact/${record.id}`
-            : queue === "advocate"
-              ? `/api/admin/non-legal-advocate/${record.id}`
-              : queue === "moderation"
-                ? `/api/admin/moderation/${record.id}`
-                : queue === "faqs"
-                  ? `/api/admin/faq/${record.id}`
-                  : queue === "blogs"
-                    ? `/api/admin/blog/${record.id}`
-                    : queue === "resources"
-                      ? `/api/admin/resource/${record.id}`
-                      : queue === "pages"
-                        ? `/api/admin/page/${record.id}`
-                        : queue === "settings"
-                          ? "/api/admin/settings"
-                          : queue === "homeCms"
-                            ? "/api/admin/home-cms"
-                            : queue === "aboutCms"
-                              ? "/api/admin/about-page-cms"
-                              : queue === "advocateCms"
-                                ? "/api/admin/non-legal-advocate-cms"
-                                : queue === "contactCms"
-                                  ? "/api/admin/contact-page-cms"
-                                  : queue === "genericCms" && record.id
-                                    ? `/api/admin/cms/${record.id}`
-                                    : queue === "notifications"
-                                      ? null
-                                      : queue === "privacy"
-                                        ? "/api/admin/privacy-policy"
-                                        : queue === "terms"
-                                          ? "/api/admin/terms-of-use"
-                                          : null;
+          : queue === "attorneys"
+            ? `/api/admin/attorney/${record.id}`
+            : queue === "contact"
+              ? `/api/admin/contact/${record.id}`
+              : queue === "advocate"
+                ? `/api/admin/non-legal-advocate/${record.id}`
+                : queue === "moderation"
+                  ? `/api/admin/moderation/${record.id}`
+                  : queue === "faqs"
+                    ? `/api/admin/faq/${record.id}`
+                    : queue === "blogs"
+                      ? `/api/admin/blog/${record.id}`
+                      : queue === "resources"
+                        ? `/api/admin/resource/${record.id}`
+                        : queue === "pages"
+                          ? `/api/admin/page/${record.id}`
+                          : queue === "settings"
+                            ? "/api/admin/settings"
+                            : queue === "homeCms"
+                              ? "/api/admin/home-cms"
+                              : queue === "aboutCms"
+                                ? "/api/admin/about-page-cms"
+                                : queue === "advocateCms"
+                                  ? "/api/admin/non-legal-advocate-cms"
+                                  : queue === "contactCms"
+                                    ? "/api/admin/contact-page-cms"
+                                    : queue === "genericCms" && record.id
+                                      ? `/api/admin/cms/${record.id}`
+                                      : queue === "notifications"
+                                        ? null
+                                        : queue === "privacy"
+                                          ? "/api/admin/privacy-policy"
+                                          : queue === "terms"
+                                            ? "/api/admin/terms-of-use"
+                                            : null;
 
     if (isFrontendManagedQueue(queue) && record.localOnly) {
       setSelectedRecord({ ...record, queue });
@@ -1968,14 +1952,14 @@ const AdminDashboard = () => {
             ? normalizeCmsRecord(response, queue)
             : queue === "privacy" || queue === "terms"
               ? normalizeLegalRecord(response, queue)
-            : queue === "pages"
+              : queue === "pages"
                 ? normalizePageRecord(response, record)
-              : queue === "removalRequests"
-                ? normalizeRecord({
-                    ...record,
-                    linkedStory: normalizeApiRecord(response, null),
-                  })
-              : normalizeSingleRecord(response, record);
+                : queue === "removalRequests"
+                  ? normalizeRecord({
+                      ...record,
+                      linkedStory: normalizeApiRecord(response, null),
+                    })
+                  : normalizeSingleRecord(response, record);
       const selectedDetails =
         queue === "blogs"
           ? { ...detailedRecord, tagsInput: getTagsInput(detailedRecord) }
@@ -2029,7 +2013,9 @@ const AdminDashboard = () => {
   };
 
   const reviewRemovalRequestStory = async () => {
-    const caseId = String(selectedRecord?.caseId || "").trim().toUpperCase();
+    const caseId = String(selectedRecord?.caseId || "")
+      .trim()
+      .toUpperCase();
     if (!caseId || selectedRecord?.queue !== "removalRequests") return;
 
     setSaving(true);
@@ -2101,9 +2087,7 @@ const AdminDashboard = () => {
       applyRemovalRequestUpdate(response, "completed");
       toast.success(`Story ${caseId} was removed successfully.`);
     } catch (requestError) {
-      toast.error(
-        requestError.message || `Unable to remove story ${caseId}.`,
-      );
+      toast.error(requestError.message || `Unable to remove story ${caseId}.`);
     } finally {
       setSaving(false);
     }
@@ -2668,10 +2652,9 @@ const AdminDashboard = () => {
     setMessage("");
     setError("");
     try {
-      await deleteJson(
-        `/api/admin/story/remove-uploads/${storyId}`,
-        { fileUrls: [fileUrl] },
-      );
+      await deleteJson(`/api/admin/story/remove-uploads/${storyId}`, {
+        fileUrls: [fileUrl],
+      });
 
       const withoutRemovedUpload = (record) => ({
         ...record,
@@ -2703,7 +2686,9 @@ const AdminDashboard = () => {
     const nextFiles = Array.from(files);
 
     if (remainingStoryUploadSlots === 0) {
-      setError(`This story already has the maximum of ${MAX_STORY_UPLOADS} files.`);
+      setError(
+        `This story already has the maximum of ${MAX_STORY_UPLOADS} files.`,
+      );
       if (uploadFileInputRef.current) uploadFileInputRef.current.value = "";
       return;
     }
@@ -3316,15 +3301,14 @@ const AdminDashboard = () => {
                     ? "Stay up to date with new submissions, publishing activity, and important admin alerts."
                     : "Review submissions, manage workflow states, add notes, and prepare sensitive content before publishing."}
                 </p>
-                <p className="mt-2 text-sm font-semibold text-[#6a757d]">
-                  Backend: {API_BASE_URL || "Local Vite proxy"}
-                </p>
               </div>
               <button
                 type="button"
                 onClick={() => {
                   if (isDashboardView) {
                     loadDashboardCounts();
+                  } else if (activeQueue === "newsletters") {
+                    setNewsletterRefreshSignal((current) => current + 1);
                   } else if (activeQueue === "pages") {
                     loadQueue("pages", {
                       page: currentPage,
@@ -3616,6 +3600,7 @@ const AdminDashboard = () => {
             {!isDashboardView && activeQueue === "newsletters" && (
               <NewsletterSubscribersPanel
                 onCountChange={updateNewsletterCount}
+                refreshSignal={newsletterRefreshSignal}
               />
             )}
 
@@ -3645,9 +3630,9 @@ const AdminDashboard = () => {
                           ? "Opening the editor directly for this section."
                           : isServerPaginatedQueue
                             ? `Showing ${visibleStart}-${visibleEnd} of ${pagesPagination.total} records`
-                          : isActiveQueuePaginated
-                            ? `Showing ${visibleStart}-${visibleEnd} of ${filteredRecords.length} filtered records (${activeRecords.length} total)`
-                            : `${filteredRecords.length} visible of ${activeRecords.length} records`}
+                            : isActiveQueuePaginated
+                              ? `Showing ${visibleStart}-${visibleEnd} of ${filteredRecords.length} filtered records (${activeRecords.length} total)`
+                              : `${filteredRecords.length} visible of ${activeRecords.length} records`}
                       </p>
                     </div>
                     {!isDirectEditQueue && (
@@ -3911,7 +3896,7 @@ const AdminDashboard = () => {
                                     ? "View"
                                     : activeQueue === "removalRequests"
                                       ? "Review"
-                                    : "Edit"}
+                                      : "Edit"}
                                 </button>
                               </td>
                             </tr>
@@ -4141,7 +4126,9 @@ const AdminDashboard = () => {
                                     !US_STATE_OPTIONS.includes(
                                       selectedRecord.story_state,
                                     ) && (
-                                      <option value={selectedRecord.story_state}>
+                                      <option
+                                        value={selectedRecord.story_state}
+                                      >
                                         {selectedRecord.story_state}
                                       </option>
                                     )}
@@ -4384,9 +4371,7 @@ const AdminDashboard = () => {
                                 <label className="block text-sm font-semibold">
                                   Rejection Reason
                                   <textarea
-                                    value={
-                                      selectedRecord.rejectionReason || ""
-                                    }
+                                    value={selectedRecord.rejectionReason || ""}
                                     onChange={(event) =>
                                       updateSelectedField(
                                         "rejectionReason",
@@ -4395,9 +4380,9 @@ const AdminDashboard = () => {
                                     }
                                     rows={4}
                                     placeholder="Required only when rejecting the request"
-                                  className="mt-2 w-full rounded border border-[#cfd3d7] bg-white px-3 py-2 font-normal"
-                                />
-                              </label>
+                                    className="mt-2 w-full rounded border border-[#cfd3d7] bg-white px-3 py-2 font-normal"
+                                  />
+                                </label>
                                 <div
                                   role="alert"
                                   className="mt-4 flex items-start gap-3 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm text-red-800"
@@ -4701,8 +4686,7 @@ const AdminDashboard = () => {
                                       return (
                                         <div
                                           key={
-                                            fileUrl ||
-                                            `${fileLabel}-${index}`
+                                            fileUrl || `${fileLabel}-${index}`
                                           }
                                           className="flex items-center gap-2 rounded border border-[#e5e5e5] bg-white px-3 py-2 font-normal"
                                         >
@@ -5009,52 +4993,50 @@ const AdminDashboard = () => {
                             <fieldset className="block text-sm font-semibold">
                               <legend>Practice Areas</legend>
                               <div className="mt-2 flex flex-wrap gap-2">
-                                {ATTORNEY_PRACTICE_AREAS.map(
-                                  (practiceArea) => {
-                                    const selectedPracticeAreas =
-                                      getAttorneyPracticeAreas(selectedRecord);
-                                    const isSelected =
-                                      selectedPracticeAreas.includes(
-                                        practiceArea,
-                                      );
-
-                                    return (
-                                      <label
-                                        key={practiceArea}
-                                        className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
-                                          isSelected
-                                            ? "border-[#405b6d] bg-[#405b6d] text-white"
-                                            : "border-[#cfd3d7] bg-white text-[#405b6d] hover:border-[#405b6d]"
-                                        }`}
-                                      >
-                                        <input
-                                          type="checkbox"
-                                          checked={isSelected}
-                                          onChange={() => {
-                                            const nextPracticeAreas = isSelected
-                                              ? selectedPracticeAreas.filter(
-                                                  (value) =>
-                                                    value !== practiceArea,
-                                                )
-                                              : [
-                                                  ...selectedPracticeAreas,
-                                                  practiceArea,
-                                                ];
-                                            updateSelectedRecord((record) => ({
-                                              ...record,
-                                              attorney_practice_areas:
-                                                nextPracticeAreas,
-                                              practiceAreasInput:
-                                                nextPracticeAreas,
-                                            }));
-                                          }}
-                                          className="sr-only"
-                                        />
-                                        {practiceArea}
-                                      </label>
+                                {ATTORNEY_PRACTICE_AREAS.map((practiceArea) => {
+                                  const selectedPracticeAreas =
+                                    getAttorneyPracticeAreas(selectedRecord);
+                                  const isSelected =
+                                    selectedPracticeAreas.includes(
+                                      practiceArea,
                                     );
-                                  },
-                                )}
+
+                                  return (
+                                    <label
+                                      key={practiceArea}
+                                      className={`cursor-pointer rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors ${
+                                        isSelected
+                                          ? "border-[#405b6d] bg-[#405b6d] text-white"
+                                          : "border-[#cfd3d7] bg-white text-[#405b6d] hover:border-[#405b6d]"
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={isSelected}
+                                        onChange={() => {
+                                          const nextPracticeAreas = isSelected
+                                            ? selectedPracticeAreas.filter(
+                                                (value) =>
+                                                  value !== practiceArea,
+                                              )
+                                            : [
+                                                ...selectedPracticeAreas,
+                                                practiceArea,
+                                              ];
+                                          updateSelectedRecord((record) => ({
+                                            ...record,
+                                            attorney_practice_areas:
+                                              nextPracticeAreas,
+                                            practiceAreasInput:
+                                              nextPracticeAreas,
+                                          }));
+                                        }}
+                                        className="sr-only"
+                                      />
+                                      {practiceArea}
+                                    </label>
+                                  );
+                                })}
                               </div>
                             </fieldset>
 
@@ -5623,43 +5605,43 @@ const AdminDashboard = () => {
 
                         {!nonWorkflowQueues.includes(selectedRecord.queue) &&
                           selectedRecord.queue !== "removalRequests" && (
-                          <>
-                            <label className="mt-5 block text-sm font-semibold">
-                              Workflow Status
-                            </label>
-                            {selectedRecord.queue === "stories" &&
-                            selectedRecord.status === "removed" ? (
-                              <div className="mt-2 flex w-full items-center rounded border border-red-300 bg-red-50 px-4 py-3">
-                                <span className="rounded-full bg-red-600 px-4 py-1.5 text-sm font-bold text-white">
-                                  Removed
-                                </span>
-                              </div>
-                            ) : (
-                              <select
-                                value={
-                                  selectedRecord?.status ||
-                                  selectedRecord?.publish_status ||
-                                  "new"
-                                }
-                                onChange={(event) =>
-                                  updateSelectedField(
-                                    "status",
-                                    event.target.value,
-                                  )
-                                }
-                                className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2"
-                              >
-                                {selectedConfig.statuses
-                                  .filter((status) => status !== "removed")
-                                  .map((status) => (
-                                    <option key={status} value={status}>
-                                      {formatStatus(status)}
-                                    </option>
-                                  ))}
-                              </select>
-                            )}
-                          </>
-                        )}
+                            <>
+                              <label className="mt-5 block text-sm font-semibold">
+                                Workflow Status
+                              </label>
+                              {selectedRecord.queue === "stories" &&
+                              selectedRecord.status === "removed" ? (
+                                <div className="mt-2 flex w-full items-center rounded border border-red-300 bg-red-50 px-4 py-3">
+                                  <span className="rounded-full bg-red-600 px-4 py-1.5 text-sm font-bold text-white">
+                                    Removed
+                                  </span>
+                                </div>
+                              ) : (
+                                <select
+                                  value={
+                                    selectedRecord?.status ||
+                                    selectedRecord?.publish_status ||
+                                    "new"
+                                  }
+                                  onChange={(event) =>
+                                    updateSelectedField(
+                                      "status",
+                                      event.target.value,
+                                    )
+                                  }
+                                  className="mt-2 w-full rounded border border-[#cfd3d7] px-3 py-2"
+                                >
+                                  {selectedConfig.statuses
+                                    .filter((status) => status !== "removed")
+                                    .map((status) => (
+                                      <option key={status} value={status}>
+                                        {formatStatus(status)}
+                                      </option>
+                                    ))}
+                                </select>
+                              )}
+                            </>
+                          )}
 
                         {/* Story uploads section */}
                         {selectedRecord.queue === "stories" && (
@@ -5756,8 +5738,8 @@ const AdminDashboard = () => {
                               className="w-full text-xs border border-[#cfd3d7] rounded px-2 py-1.5 disabled:opacity-60"
                             />
                             <p className="mt-1 text-xs text-[#7a858d]">
-                              Maximum {MAX_STORY_UPLOADS} files per story. Existing
-                              files count toward this limit.
+                              Maximum {MAX_STORY_UPLOADS} files per story.
+                              Existing files count toward this limit.
                             </p>
                             {isUploadingFiles && (
                               <p className="text-xs text-[#4a8bc1] mt-1">
@@ -5788,10 +5770,9 @@ const AdminDashboard = () => {
                             </button>
                           )}
 
-                        {![
-                          "notifications",
-                          "removalRequests",
-                        ].includes(selectedRecord.queue) && (
+                        {!["notifications", "removalRequests"].includes(
+                          selectedRecord.queue,
+                        ) && (
                           <button
                             onClick={saveSelectedRecord}
                             disabled={
